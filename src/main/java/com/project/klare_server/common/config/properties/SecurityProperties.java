@@ -6,16 +6,25 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "klare.security")
-public record SecurityProperties(Jwt jwt, RefreshToken refreshToken, Cors cors) {
+public record SecurityProperties(Jwt jwt, RefreshToken refreshToken, Login login, PasswordReset passwordReset, Cors cors) {
 
     public record Jwt(
             String secret,
             @DefaultValue("klare-business") String issuer,
             @DefaultValue("PT15M") Duration accessTokenTtl,
-            @DefaultValue("P30D") Duration refreshTokenTtl) {
+            @DefaultValue("P30D") Duration refreshTokenTtl,
+            @DefaultValue("PT12H") Duration sessionTokenTtl) {
     }
 
     public record RefreshToken(String pepper) {
+    }
+
+    public record Login(
+            @DefaultValue("5") int maxFailedAttempts,
+            @DefaultValue("PT15M") Duration lockDuration) {
+    }
+
+    public record PasswordReset(@DefaultValue("PT30M") Duration tokenTtl) {
     }
 
     public record Cors(
