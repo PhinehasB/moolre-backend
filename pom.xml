@@ -30,6 +30,8 @@
 		<java.version>17</java.version>
 		<jjwt.version>0.12.6</jjwt.version>
 		<bucket4j.version>8.14.0</bucket4j.version>
+		<commons-csv.version>1.14.1</commons-csv.version>
+		<poi.version>5.5.1</poi.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -81,6 +83,17 @@
 			<artifactId>jjwt-jackson</artifactId>
 			<version>${jjwt.version}</version>
 			<scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>${commons-csv.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>${poi.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>

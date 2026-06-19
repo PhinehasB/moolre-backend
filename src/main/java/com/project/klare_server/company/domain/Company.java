@@ -37,6 +37,12 @@ public class Company extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private CompanyStatus status = CompanyStatus.PENDING_VERIFICATION;
 
+    @Column(name = "auto_payroll_enabled", nullable = false)
+    private boolean autoPayrollEnabled = true;
+
+    @Column(name = "payroll_day_of_month", nullable = false)
+    private int payrollDayOfMonth = 28;
+
     @Column(name = "terms_accepted_at", nullable = false)
     private Instant termsAcceptedAt;
 

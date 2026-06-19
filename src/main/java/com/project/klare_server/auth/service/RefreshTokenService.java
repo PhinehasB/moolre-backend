@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RefreshTokenService {
@@ -27,10 +29,13 @@ public class RefreshTokenService {
     }
 
     public IssuedToken issue(BusinessUser user, String userAgent, String ipAddress, Duration ttl) {
+        return issueUntil(user, userAgent, ipAddress, Instant.now().plus(ttl));
+    }
+
+    public IssuedToken issueUntil(BusinessUser user, String userAgent, String ipAddress, Instant expiresAt) {
         byte[] raw = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(raw);
         String rawToken = encoder.encodeToString(raw);
-        Instant expiresAt = Instant.now().plus(ttl);
 
         RefreshToken token = new RefreshToken();
         token.setUser(user);
@@ -41,6 +46,11 @@ public class RefreshTokenService {
         refreshTokenRepository.save(token);
 
         return new IssuedToken(rawToken, expiresAt);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void revokeAllForUser(BusinessUser user) {
+        refreshTokenRepository.revokeAllForUser(user, Instant.now());
     }
 
     public String hash(String rawToken) {

@@ -13,4 +13,9 @@ public class LoggingEmailService implements EmailService {
     public void sendPasswordReset(String toEmail, String firstName, String resetLink) {
         log.info("Password reset email -> to={} name={} link={}", toEmail, firstName, resetLink);
     }
+
+    @Override
+    public void sendEmployeeInvitation(String toEmail, String firstName, String companyName) {
+        log.info("Employee invitation email -> to={} name={} company={}", toEmail, firstName, companyName);
+    }
 }

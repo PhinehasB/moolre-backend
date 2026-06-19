@@ -3,7 +3,9 @@ package com.project.klare_server.auth.web;
 import com.project.klare_server.auth.dto.AuthenticationResponse;
 import com.project.klare_server.auth.dto.ForgotPasswordRequest;
 import com.project.klare_server.auth.dto.LoginRequest;
+import com.project.klare_server.auth.dto.LogoutRequest;
 import com.project.klare_server.auth.dto.MessageResponse;
+import com.project.klare_server.auth.dto.RefreshTokenRequest;
 import com.project.klare_server.auth.dto.RegisterCompanyRequest;
 import com.project.klare_server.auth.dto.RegistrationOptionsResponse;
 import com.project.klare_server.auth.dto.ResetPasswordRequest;
@@ -89,6 +91,30 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.ok(
                 new MessageResponse("Your password has been reset. Please sign in with your new password.")));
+    }
+
+    @Operation(
+            summary = "Refresh the access token",
+            description = "Exchanges a valid refresh token for a new access token and a rotated refresh token. "
+                    + "The previous refresh token is revoked; reusing it signs out all sessions.")
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> refresh(
+            @Valid @RequestBody RefreshTokenRequest request,
+            HttpServletRequest httpRequest) {
+        String userAgent = httpRequest.getHeader(HttpHeaders.USER_AGENT);
+        String ipAddress = ClientIpResolver.resolve(httpRequest);
+        AuthenticationResponse response = authService.refresh(request.refreshToken(), userAgent, ipAddress);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(
+            summary = "Sign out",
+            description = "Revokes the supplied refresh token. Always succeeds so it is safe to call on logout.")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<MessageResponse>> logout(
+            @Valid @RequestBody LogoutRequest request) {
+        authService.logout(request.refreshToken());
+        return ResponseEntity.ok(ApiResponse.ok(new MessageResponse("Signed out.")));
     }
 
     @Operation(

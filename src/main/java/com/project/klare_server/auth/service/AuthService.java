@@ -3,6 +3,7 @@ package com.project.klare_server.auth.service;
 import com.project.klare_server.auth.domain.BusinessUser;
 import com.project.klare_server.auth.domain.BusinessUserRole;
 import com.project.klare_server.auth.domain.BusinessUserStatus;
+import com.project.klare_server.auth.domain.RefreshToken;
 import com.project.klare_server.auth.dto.AuthUserResponse;
 import com.project.klare_server.auth.dto.AuthenticationResponse;
 import com.project.klare_server.auth.dto.CompanyResponse;
@@ -20,7 +21,9 @@ import com.project.klare_server.common.error.ConflictException;
 import com.project.klare_server.common.error.ErrorCode;
 import com.project.klare_server.company.domain.Company;
 import com.project.klare_server.company.domain.CompanyStatus;
+import com.project.klare_server.company.domain.CompanyWallet;
 import com.project.klare_server.company.repository.CompanyRepository;
+import com.project.klare_server.company.repository.CompanyWalletRepository;
 import java.time.Duration;
 import java.time.Instant;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final CompanyRepository companyRepository;
+    private final CompanyWalletRepository companyWalletRepository;
     private final BusinessUserRepository businessUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -45,6 +49,7 @@ public class AuthService {
 
     public AuthService(
             CompanyRepository companyRepository,
+            CompanyWalletRepository companyWalletRepository,
             BusinessUserRepository businessUserRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
@@ -56,6 +61,7 @@ public class AuthService {
             SecurityProperties securityProperties,
             AppProperties appProperties) {
         this.companyRepository = companyRepository;
+        this.companyWalletRepository = companyWalletRepository;
         this.businessUserRepository = businessUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -101,8 +107,12 @@ public class AuthService {
         admin.setStatus(BusinessUserStatus.ACTIVE);
         admin.setEmailVerified(false);
 
+        CompanyWallet wallet = new CompanyWallet();
+        wallet.setCompany(company);
+
         try {
             companyRepository.save(company);
+            companyWalletRepository.save(wallet);
             businessUserRepository.save(admin);
             businessUserRepository.flush();
         } catch (DataIntegrityViolationException ex) {
@@ -160,6 +170,47 @@ public class AuthService {
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
         refreshTokenRepository.revokeAllForUser(user, Instant.now());
+    }
+
+    @Transactional
+    public AuthenticationResponse refresh(String rawRefreshToken, String userAgent, String ipAddress) {
+        Instant now = Instant.now();
+        RefreshToken current = refreshTokenRepository.findByTokenHash(refreshTokenService.hash(rawRefreshToken))
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Invalid refresh token"));
+
+        if (current.getRevokedAt() != null) {
+            refreshTokenService.revokeAllForUser(current.getUser());
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "Refresh token has already been used");
+        }
+        if (!current.getExpiresAt().isAfter(now)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "Refresh token has expired");
+        }
+
+        BusinessUser user = current.getUser();
+        if (user.getStatus() != BusinessUserStatus.ACTIVE) {
+            throw new ApiException(ErrorCode.ACCOUNT_INACTIVE, "Your account is not active. Please contact your administrator.");
+        }
+
+        RefreshTokenService.IssuedToken rotated = refreshTokenService.issueUntil(user, userAgent, ipAddress, current.getExpiresAt());
+        current.setRevokedAt(now);
+        current.setReplacedByTokenHash(refreshTokenService.hash(rotated.rawToken()));
+
+        String accessToken = jwtService.generateAccessToken(user);
+        return new AuthenticationResponse(
+                "Bearer",
+                accessToken,
+                jwtService.accessTokenTtlSeconds(),
+                rotated.rawToken(),
+                rotated.expiresAt(),
+                AuthUserResponse.from(user),
+                CompanyResponse.from(user.getCompany()));
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        refreshTokenRepository.findByTokenHash(refreshTokenService.hash(rawRefreshToken))
+                .filter(token -> token.getRevokedAt() == null)
+                .ifPresent(token -> token.setRevokedAt(Instant.now()));
     }
 
     private AuthenticationResponse buildAuthResponse(

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.klare_server.common.config.properties.IdempotencyProperties;
 import com.project.klare_server.common.config.properties.RateLimitProperties;
 import com.project.klare_server.common.config.properties.SecurityProperties;
+import com.project.klare_server.auth.security.JwtAuthenticationFilter;
+import com.project.klare_server.auth.service.JwtService;
 import com.project.klare_server.common.idempotency.IdempotencyFilter;
 import com.project.klare_server.common.idempotency.IdempotencyService;
 import com.project.klare_server.common.ratelimit.RateLimitFilter;
@@ -45,6 +47,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final IdempotencyService idempotencyService;
+    private final JwtService jwtService;
     private final ObjectMapper objectMapper;
 
     public SecurityConfig(
@@ -54,6 +57,7 @@ public class SecurityConfig {
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
             IdempotencyService idempotencyService,
+            JwtService jwtService,
             ObjectMapper objectMapper) {
         this.securityProperties = securityProperties;
         this.rateLimitProperties = rateLimitProperties;
@@ -61,12 +65,14 @@ public class SecurityConfig {
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
         this.idempotencyService = idempotencyService;
+        this.jwtService = jwtService;
         this.objectMapper = objectMapper;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         RateLimitFilter rateLimitFilter = new RateLimitFilter(rateLimitProperties, objectMapper);
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtService);
         IdempotencyFilter idempotencyFilter = new IdempotencyFilter(idempotencyService, idempotencyProperties, objectMapper);
 
         http
@@ -83,7 +89,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(idempotencyFilter, RateLimitFilter.class);
+                .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class)
+                .addFilterAfter(idempotencyFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

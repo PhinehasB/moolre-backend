@@ -1,6 +1,7 @@
 package com.project.klare_server.common.idempotency;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.klare_server.auth.security.AuthenticatedUser;
 import com.project.klare_server.common.config.properties.IdempotencyProperties;
 import com.project.klare_server.common.error.ApiError;
 import com.project.klare_server.common.error.ErrorCode;
@@ -117,8 +118,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
     private String resolveScope() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated()
-                && !"anonymousUser".equals(authentication.getPrincipal())) {
-            return authentication.getName();
+                && authentication.getPrincipal() instanceof AuthenticatedUser user) {
+            return user.id().toString();
         }
         return ANONYMOUS_SCOPE;
     }
