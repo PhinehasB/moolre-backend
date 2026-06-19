@@ -24,6 +24,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     List<Employee> findTop5ByCompanyIdOrderByCreatedAtDesc(UUID companyId);
 
+    List<Employee> findByCompanyIdAndStatus(UUID companyId, EmployeeStatus status);
+
     @Query("""
             select coalesce(sum(e.monthlySalary), 0) from Employee e
             where e.company.id = :companyId and e.status = :status

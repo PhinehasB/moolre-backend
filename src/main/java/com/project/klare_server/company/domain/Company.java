@@ -43,6 +43,12 @@ public class Company extends BaseEntity {
     @Column(name = "payroll_day_of_month", nullable = false)
     private int payrollDayOfMonth = 28;
 
+    @Column(name = "email_estimate_before_run", nullable = false)
+    private boolean emailEstimateBeforeRun = true;
+
+    @Column(name = "notify_employees_before_payday", nullable = false)
+    private boolean notifyEmployeesBeforePayday = true;
+
     @Column(name = "terms_accepted_at", nullable = false)
     private Instant termsAcceptedAt;
 

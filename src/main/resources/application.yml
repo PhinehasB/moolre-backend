@@ -117,3 +117,21 @@ klare:
   idempotency:
     enabled: true
     ttl: ${IDEMPOTENCY_TTL:PT24H}
+  moolre:
+    env: ${MOOLRE_ENV:sandbox}
+    callback-url: ${MOOLRE_CALLBACK_URL:}
+    currency: GHS
+    sandbox:
+      base-url: ${MOOLRE_SANDBOX_BASE_URL:https://sandbox.moolre.com}
+      api-user: ${MOOLRE_SANDBOX_API_USER:}
+      api-key: ${MOOLRE_SANDBOX_API_KEY:}
+      api-pubkey: ${MOOLRE_SANDBOX_API_PUBKEY:}
+      account-number: ${MOOLRE_SANDBOX_ACCOUNT_NUMBER:}
+      callback-secret: ${MOOLRE_SANDBOX_CALLBACK_SECRET:}
+    live:
+      base-url: ${MOOLRE_LIVE_BASE_URL:https://api.moolre.com}
+      api-user: ${MOOLRE_LIVE_API_USER:}
+      api-key: ${MOOLRE_LIVE_API_KEY:}
+      api-pubkey: ${MOOLRE_LIVE_API_PUBKEY:}
+      account-number: ${MOOLRE_LIVE_ACCOUNT_NUMBER:}
+      callback-secret: ${MOOLRE_LIVE_CALLBACK_SECRET:}
