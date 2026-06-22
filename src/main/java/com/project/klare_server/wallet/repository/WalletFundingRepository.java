@@ -13,4 +13,6 @@ public interface WalletFundingRepository extends JpaRepository<WalletFunding, UU
     Optional<WalletFunding> findByExternalRefAndCompanyId(String externalRef, UUID companyId);
 
     List<WalletFunding> findTop10ByCompanyIdOrderByCreatedAtDesc(UUID companyId);
+
+    List<WalletFunding> findTop200ByCompanyIdOrderByCreatedAtDesc(UUID companyId);
 }

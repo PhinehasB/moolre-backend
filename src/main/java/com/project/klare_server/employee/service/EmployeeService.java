@@ -52,7 +52,7 @@ public class EmployeeService {
         employee.setLastName(request.lastName().trim());
         employee.setEmail(email);
         employee.setPhone(request.phone().trim());
-        employee.setJobTitle(StringUtils.hasText(request.jobTitle()) ? request.jobTitle().trim() : null);
+        employee.setRole(request.role().trim());
         employee.setMonthlySalary(request.monthlySalary());
         employee.setStatus(EmployeeStatus.PENDING);
 
@@ -103,7 +103,7 @@ public class EmployeeService {
         employee.setLastName(request.lastName().trim());
         employee.setEmail(email);
         employee.setPhone(request.phone().trim());
-        employee.setJobTitle(StringUtils.hasText(request.jobTitle()) ? request.jobTitle().trim() : null);
+        employee.setRole(request.role().trim());
         employee.setMonthlySalary(request.monthlySalary());
         employee.setStatus(request.status());
 

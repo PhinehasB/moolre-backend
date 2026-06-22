@@ -25,7 +25,7 @@ public record CreateEmployeeRequest(
         @Pattern(regexp = "^\\+?[0-9\\s-]{7,20}$", message = "must be a valid phone number") String phone,
 
         @Schema(example = "Software Engineer")
-        @Size(max = 120) String jobTitle,
+        @NotBlank @Size(max = 120) String role,
 
         @Schema(example = "5000.00")
         @NotNull

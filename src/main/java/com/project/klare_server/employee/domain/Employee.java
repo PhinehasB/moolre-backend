@@ -44,8 +44,8 @@ public class Employee extends BaseEntity {
     @Column(name = "phone", nullable = false, length = 30)
     private String phone;
 
-    @Column(name = "job_title", length = 120)
-    private String jobTitle;
+    @Column(name = "job_role", nullable = false, length = 120)
+    private String role;
 
     @Column(name = "monthly_salary", nullable = false, precision = 19, scale = 2)
     private BigDecimal monthlySalary;

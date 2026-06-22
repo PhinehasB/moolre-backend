@@ -45,6 +45,9 @@ public class PayrollRun extends BaseEntity {
     @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "service_fee", nullable = false, precision = 19, scale = 2)
+    private BigDecimal serviceFee = BigDecimal.ZERO;
+
     @Column(name = "success_count", nullable = false)
     private int successCount = 0;
 

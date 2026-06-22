@@ -16,7 +16,7 @@ public record UpdateEmployeeRequest(
         @NotBlank @Email @Size(max = 320) String email,
         @NotBlank @Size(max = 30)
         @Pattern(regexp = "^\\+?[0-9\\s-]{7,20}$", message = "must be a valid phone number") String phone,
-        @Size(max = 120) String jobTitle,
+        @NotBlank @Size(max = 120) String role,
         @NotNull
         @DecimalMin(value = "0.0", inclusive = false, message = "must be greater than zero")
         @Digits(integer = 17, fraction = 2, message = "must be a valid amount") BigDecimal monthlySalary,

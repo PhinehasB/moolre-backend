@@ -43,7 +43,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class EmployeeController {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final String CSV_TEMPLATE = "name,email,phone,salary\nKwame Essien,kwame@techcorp.com,+233241112233,5000\n";
+    private static final String CSV_TEMPLATE =
+            "name,email,phone,salary,role\nKwame Essien,kwame@techcorp.com,+233241112233,5000,Software Engineer\n";
 
     private final EmployeeService employeeService;
     private final EmployeeImportService employeeImportService;

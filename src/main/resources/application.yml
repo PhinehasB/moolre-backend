@@ -140,6 +140,8 @@ klare:
   idempotency:
     enabled: true
     ttl: ${IDEMPOTENCY_TTL:PT24H}
+  payroll:
+    service-fee-percent: ${PAYROLL_SERVICE_FEE_PERCENT:0.5}
   moolre:
     env: ${MOOLRE_ENV:sandbox}
     callback-url: ${MOOLRE_CALLBACK_URL:}

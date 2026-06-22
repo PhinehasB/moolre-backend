@@ -121,12 +121,15 @@ public class EmployeeImportService {
 
         BigDecimal salary = parseSalary(row.salary());
 
+        String role = StringUtils.hasText(row.role()) ? safe(row.role()) : "Employee";
+
         Employee employee = new Employee();
         employee.setCompany(company);
         employee.setFirstName(parts[0].trim());
         employee.setLastName(parts[1].trim());
         employee.setEmail(email);
         employee.setPhone(phone);
+        employee.setRole(role);
         employee.setMonthlySalary(salary);
         employee.setStatus(EmployeeStatus.PENDING);
         return employee;
@@ -178,7 +181,8 @@ public class EmployeeImportService {
             List<ParsedRow> rows = new ArrayList<>();
             for (CSVRecord record : parser) {
                 int line = (int) record.getRecordNumber() + 1;
-                rows.add(new ParsedRow(line, record.get("name"), record.get("email"), record.get("phone"), record.get("salary")));
+                String role = record.isMapped("role") ? record.get("role") : null;
+                rows.add(new ParsedRow(line, record.get("name"), record.get("email"), record.get("phone"), record.get("salary"), role));
             }
             return rows;
         }
@@ -211,11 +215,12 @@ public class EmployeeImportService {
                 String email = cell(formatter, row, columns.get("email"));
                 String phone = cell(formatter, row, columns.get("phone"));
                 String salary = cell(formatter, row, columns.get("salary"));
+                String role = cell(formatter, row, columns.get("role"));
                 if (!StringUtils.hasText(name) && !StringUtils.hasText(email)
                         && !StringUtils.hasText(phone) && !StringUtils.hasText(salary)) {
                     continue;
                 }
-                rows.add(new ParsedRow(r + 1, name, email, phone, salary));
+                rows.add(new ParsedRow(r + 1, name, email, phone, salary, role));
             }
             return rows;
         }
@@ -244,7 +249,7 @@ public class EmployeeImportService {
         return value == null ? "" : value.trim();
     }
 
-    private record ParsedRow(int rowNumber, String name, String email, String phone, String salary) {
+    private record ParsedRow(int rowNumber, String name, String email, String phone, String salary, String role) {
     }
 
     private static class RowException extends RuntimeException {

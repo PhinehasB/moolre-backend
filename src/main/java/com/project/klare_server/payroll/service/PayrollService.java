@@ -58,6 +58,7 @@ public class PayrollService {
     private final SmsService smsService;
     private final MoolreClient moolreClient;
     private final String pepper;
+    private final BigDecimal serviceFeePercent;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PayrollService(
@@ -70,6 +71,7 @@ public class PayrollService {
             PayrollConfirmationAttemptService attemptService,
             SmsService smsService,
             MoolreClient moolreClient,
+            @org.springframework.beans.factory.annotation.Value("${klare.payroll.service-fee-percent:0.5}") BigDecimal serviceFeePercent,
             SecurityProperties securityProperties) {
         this.companyRepository = companyRepository;
         this.companyWalletRepository = companyWalletRepository;
@@ -80,6 +82,7 @@ public class PayrollService {
         this.attemptService = attemptService;
         this.smsService = smsService;
         this.moolreClient = moolreClient;
+        this.serviceFeePercent = serviceFeePercent;
         this.pepper = securityProperties.refreshToken().pepper();
     }
 
@@ -219,7 +222,10 @@ public class PayrollService {
             }
         }
 
-        wallet.setBalance(wallet.getBalance().subtract(committed));
+        BigDecimal serviceFee = committed.multiply(serviceFeePercent)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        wallet.setBalance(wallet.getBalance().subtract(committed).subtract(serviceFee));
+        run.setServiceFee(serviceFee);
         run.setSuccessCount(paid);
         run.setFailureCount(failed);
         if (pending > 0) {

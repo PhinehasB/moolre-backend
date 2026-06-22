@@ -13,9 +13,7 @@ import com.project.klare_server.company.repository.CompanyWalletRepository;
 import com.project.klare_server.moolre.GhanaMobileMoney;
 import com.project.klare_server.moolre.MoolreClient;
 import com.project.klare_server.moolre.MoolreException;
-import com.project.klare_server.payroll.domain.PayrollRun;
-import com.project.klare_server.payroll.domain.PayrollRunStatus;
-import com.project.klare_server.payroll.repository.PayrollRunRepository;
+import com.project.klare_server.transactions.service.LedgerAssembler;
 import com.project.klare_server.wallet.domain.FundingStatus;
 import com.project.klare_server.wallet.domain.WalletFunding;
 import com.project.klare_server.wallet.dto.FundWalletRequest;
@@ -24,8 +22,6 @@ import com.project.klare_server.wallet.dto.LedgerEntry;
 import com.project.klare_server.wallet.dto.WalletResponse;
 import com.project.klare_server.wallet.repository.WalletFundingRepository;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -45,7 +41,7 @@ public class WalletService {
     private final CompanyWalletRepository walletRepository;
     private final CompanyRepository companyRepository;
     private final BusinessUserRepository businessUserRepository;
-    private final PayrollRunRepository payrollRunRepository;
+    private final LedgerAssembler ledgerAssembler;
     private final MoolreClient moolreClient;
 
     public WalletService(
@@ -53,13 +49,13 @@ public class WalletService {
             CompanyWalletRepository walletRepository,
             CompanyRepository companyRepository,
             BusinessUserRepository businessUserRepository,
-            PayrollRunRepository payrollRunRepository,
+            LedgerAssembler ledgerAssembler,
             MoolreClient moolreClient) {
         this.fundingRepository = fundingRepository;
         this.walletRepository = walletRepository;
         this.companyRepository = companyRepository;
         this.businessUserRepository = businessUserRepository;
-        this.payrollRunRepository = payrollRunRepository;
+        this.ledgerAssembler = ledgerAssembler;
         this.moolreClient = moolreClient;
     }
 
@@ -107,58 +103,7 @@ public class WalletService {
     }
 
     private List<LedgerEntry> buildLedger(UUID companyId) {
-        List<LedgerEntry> entries = new ArrayList<>();
-        for (WalletFunding funding : fundingRepository.findTop10ByCompanyIdOrderByCreatedAtDesc(companyId)) {
-            String method = "BANK".equals(funding.getSource()) ? "Bank transfer" : "MoMo";
-            entries.add(new LedgerEntry(
-                    funding.getCreatedAt(),
-                    "Wallet top-up · " + method,
-                    reference(funding.getTransactionId() != null ? funding.getTransactionId() : funding.getExternalRef()),
-                    fundingStatusLabel(funding.getStatus()),
-                    "CREDIT",
-                    funding.getAmount()));
-        }
-        for (PayrollRun run : payrollRunRepository.findTop20ByCompanyIdOrderByCreatedAtDesc(companyId)) {
-            if (run.getStatus() == PayrollRunStatus.COMPLETED
-                    || run.getStatus() == PayrollRunStatus.PROCESSING
-                    || run.getStatus() == PayrollRunStatus.FAILED) {
-                entries.add(new LedgerEntry(
-                        run.getCompletedAt() != null ? run.getCompletedAt() : run.getCreatedAt(),
-                        "Payroll run · " + run.getEmployeeCount() + " employees",
-                        reference(run.getId().toString()),
-                        runStatusLabel(run.getStatus()),
-                        "DEBIT",
-                        run.getTotalAmount()));
-            }
-        }
-        return entries.stream()
-                .sorted(Comparator.comparing(LedgerEntry::date).reversed())
-                .limit(LEDGER_SIZE)
-                .toList();
-    }
-
-    private String fundingStatusLabel(FundingStatus status) {
-        return switch (status) {
-            case SUCCESS -> "Success";
-            case FAILED -> "Failed";
-            default -> "Pending";
-        };
-    }
-
-    private String runStatusLabel(PayrollRunStatus status) {
-        return switch (status) {
-            case COMPLETED -> "Success";
-            case FAILED -> "Failed";
-            default -> "Pending";
-        };
-    }
-
-    private String reference(String source) {
-        if (!StringUtils.hasText(source)) {
-            return "MLR-" + Integer.toHexString(System.identityHashCode(this)).toUpperCase();
-        }
-        String cleaned = source.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
-        return "MLR-" + cleaned.substring(0, Math.min(7, cleaned.length()));
+        return ledgerAssembler.assemble(companyId).stream().limit(LEDGER_SIZE).toList();
     }
 
     private String maskAccount(String accountNo) {
