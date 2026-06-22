@@ -35,4 +35,13 @@ public class CompanyWallet extends BaseEntity {
 
     @Column(name = "moolre_account_ref", length = 64)
     private String moolreAccountRef;
+
+    @Column(name = "bank_account_no", length = 32)
+    private String bankAccountNo;
+
+    @Column(name = "bank_account_name", length = 120)
+    private String bankAccountName;
+
+    @Column(name = "bank_name", length = 120)
+    private String bankName;
 }

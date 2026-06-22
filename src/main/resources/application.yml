@@ -50,6 +50,22 @@ spring:
       max-file-size: 5MB
       max-request-size: 6MB
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        transport:
+          protocol: smtp
+    test-connection: false
+
 server:
   port: ${SERVER_PORT:8080}
   forward-headers-strategy: framework
@@ -83,6 +99,11 @@ springdoc:
 klare:
   app:
     password-reset-url: ${APP_PASSWORD_RESET_URL:http://localhost:3000/reset-password}
+    api-base-url: ${APP_API_BASE_URL:http://localhost:8080}
+    login-url: ${APP_LOGIN_URL:http://localhost:3000/login}
+  mail:
+    from-address: ${MAIL_FROM_ADDRESS:no-reply@klare.app}
+    from-name: ${MAIL_FROM_NAME:Klare}
   security:
     jwt:
       secret: ${JWT_SECRET}
@@ -97,6 +118,8 @@ klare:
       lock-duration: ${LOGIN_LOCK_DURATION:PT15M}
     password-reset:
       token-ttl: ${PASSWORD_RESET_TOKEN_TTL:PT30M}
+    email-verification:
+      token-ttl: ${EMAIL_VERIFICATION_TOKEN_TTL:P2D}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
       allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS

@@ -11,6 +11,7 @@ import com.project.klare_server.auth.dto.ForgotPasswordRequest;
 import com.project.klare_server.auth.dto.LoginRequest;
 import com.project.klare_server.auth.dto.RegisterCompanyRequest;
 import com.project.klare_server.auth.dto.ResetPasswordRequest;
+import com.project.klare_server.auth.dto.VerificationPendingResponse;
 import com.project.klare_server.auth.notification.EmailService;
 import com.project.klare_server.auth.repository.BusinessUserRepository;
 import com.project.klare_server.auth.repository.RefreshTokenRepository;
@@ -42,6 +43,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
     private final LoginAttemptService loginAttemptService;
     private final EmailService emailService;
     private final SecurityProperties securityProperties;
@@ -56,6 +58,7 @@ public class AuthService {
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             PasswordResetService passwordResetService,
+            EmailVerificationService emailVerificationService,
             LoginAttemptService loginAttemptService,
             EmailService emailService,
             SecurityProperties securityProperties,
@@ -68,6 +71,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
         this.loginAttemptService = loginAttemptService;
         this.emailService = emailService;
         this.securityProperties = securityProperties;
@@ -75,7 +79,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthenticationResponse registerCompany(RegisterCompanyRequest request, String userAgent, String ipAddress) {
+    public VerificationPendingResponse registerCompany(RegisterCompanyRequest request) {
         String email = normalizeEmail(request.administrator().email());
         String registrationNumber = normalizeRegistrationNumber(request.company().registrationNumber());
 
@@ -119,7 +123,34 @@ public class AuthService {
             throw new ConflictException("An account with these details already exists");
         }
 
-        return buildAuthResponse(admin, company, securityProperties.jwt().refreshTokenTtl(), userAgent, ipAddress);
+        sendVerificationEmail(admin, company);
+        return new VerificationPendingResponse(
+                admin.getEmail(),
+                "We've sent a verification link to your email. Click it to verify your company and sign in.");
+    }
+
+    @Transactional
+    public void verifyEmail(String rawToken) {
+        BusinessUser user = emailVerificationService.consume(rawToken);
+        user.setEmailVerified(true);
+        Company company = user.getCompany();
+        if (company.getStatus() == CompanyStatus.PENDING_VERIFICATION) {
+            company.setStatus(CompanyStatus.ACTIVE);
+        }
+    }
+
+    @Transactional
+    public void resendVerification(String rawEmail) {
+        String email = normalizeEmail(rawEmail);
+        businessUserRepository.findByEmailIgnoreCase(email)
+                .filter(user -> !user.isEmailVerified())
+                .ifPresent(user -> sendVerificationEmail(user, user.getCompany()));
+    }
+
+    private void sendVerificationEmail(BusinessUser user, Company company) {
+        String rawToken = emailVerificationService.issue(user);
+        String link = appProperties.apiBaseUrl() + "/api/v1/auth/company/verify-email?token=" + rawToken;
+        emailService.sendCompanyVerification(user.getEmail(), user.getFirstName(), company.getName(), link);
     }
 
     @Transactional
@@ -139,6 +170,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             loginAttemptService.recordFailure(user.getId());
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password");
+        }
+        if (!user.isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED, "Please verify your email before signing in.");
         }
 
         user.setFailedLoginAttempts(0);

@@ -8,8 +8,12 @@ import com.project.klare_server.auth.dto.MessageResponse;
 import com.project.klare_server.auth.dto.RefreshTokenRequest;
 import com.project.klare_server.auth.dto.RegisterCompanyRequest;
 import com.project.klare_server.auth.dto.RegistrationOptionsResponse;
+import com.project.klare_server.auth.dto.ResendVerificationRequest;
 import com.project.klare_server.auth.dto.ResetPasswordRequest;
+import com.project.klare_server.auth.dto.VerificationPendingResponse;
 import com.project.klare_server.auth.service.AuthService;
+import com.project.klare_server.common.config.properties.AppProperties;
+import com.project.klare_server.common.error.ApiException;
 import com.project.klare_server.common.web.ApiResponse;
 import com.project.klare_server.common.web.ClientIpResolver;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +22,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.net.URI;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -35,25 +41,51 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final AppProperties appProperties;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AppProperties appProperties) {
         this.authService = authService;
+        this.appProperties = appProperties;
     }
 
     @Operation(
             summary = "Register a company and its admin",
-            description = "Creates the company, its owner administrator account and consents, then returns access and refresh tokens. "
-                    + "Send an Idempotency-Key header to make retries safe.")
+            description = "Creates the company (unverified) and its owner account, then emails a verification link. "
+                    + "The admin verifies their email before they can sign in. Send an Idempotency-Key header to make retries safe.")
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> register(
+    public ResponseEntity<ApiResponse<VerificationPendingResponse>> register(
             @Valid @RequestBody RegisterCompanyRequest request,
             @Parameter(description = "Optional unique key (max 255 chars) to safely retry this request without creating duplicates")
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-            HttpServletRequest httpRequest) {
-        String userAgent = httpRequest.getHeader(HttpHeaders.USER_AGENT);
-        String ipAddress = ClientIpResolver.resolve(httpRequest);
-        AuthenticationResponse response = authService.registerCompany(request, userAgent, ipAddress);
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        VerificationPendingResponse response = authService.registerCompany(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
+    @Operation(
+            summary = "Verify a company's email",
+            description = "Opened from the verification link in the email. Verifies the company and redirects to the sign-in page.")
+    @GetMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@RequestParam("token") String token) {
+        String outcome;
+        try {
+            authService.verifyEmail(token);
+            outcome = "success";
+        } catch (ApiException ex) {
+            outcome = "invalid";
+        }
+        URI redirect = URI.create(appProperties.loginUrl() + "?verified=" + outcome);
+        return ResponseEntity.status(HttpStatus.FOUND).location(redirect).build();
+    }
+
+    @Operation(
+            summary = "Resend the verification email",
+            description = "Sends a new verification link if the email belongs to an unverified account. Always returns the same response.")
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<MessageResponse>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerification(request.email());
+        return ResponseEntity.ok(ApiResponse.ok(
+                new MessageResponse("If that email needs verification, a new link has been sent.")));
     }
 
     @Operation(

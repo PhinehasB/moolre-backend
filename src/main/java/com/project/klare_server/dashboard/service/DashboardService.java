@@ -10,6 +10,9 @@ import com.project.klare_server.dashboard.dto.DashboardSummaryResponse;
 import com.project.klare_server.employee.dto.EmployeeResponse;
 import com.project.klare_server.employee.domain.EmployeeStatus;
 import com.project.klare_server.employee.repository.EmployeeRepository;
+import com.project.klare_server.payroll.domain.PayrollRun;
+import com.project.klare_server.payroll.domain.PayrollRunStatus;
+import com.project.klare_server.payroll.repository.PayrollRunRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,14 +30,17 @@ public class DashboardService {
     private final BusinessUserRepository businessUserRepository;
     private final EmployeeRepository employeeRepository;
     private final CompanyWalletRepository companyWalletRepository;
+    private final PayrollRunRepository payrollRunRepository;
 
     public DashboardService(
             BusinessUserRepository businessUserRepository,
             EmployeeRepository employeeRepository,
-            CompanyWalletRepository companyWalletRepository) {
+            CompanyWalletRepository companyWalletRepository,
+            PayrollRunRepository payrollRunRepository) {
         this.businessUserRepository = businessUserRepository;
         this.employeeRepository = employeeRepository;
         this.companyWalletRepository = companyWalletRepository;
+        this.payrollRunRepository = payrollRunRepository;
     }
 
     @Transactional(readOnly = true)
@@ -70,6 +76,12 @@ public class DashboardService {
         DashboardSummaryResponse.Stats stats = new DashboardSummaryResponse.Stats(
                 activeEmployees, pendingOnboarding, totalEmployees, addedThisMonth, totalToPay);
 
+        DashboardSummaryResponse.LastPayroll lastPayroll = payrollRunRepository
+                .findTop12ByCompanyIdAndStatusOrderByCompletedAtDesc(companyId, PayrollRunStatus.COMPLETED)
+                .stream().findFirst()
+                .map(this::toLastPayroll)
+                .orElse(null);
+
         List<EmployeeResponse> team = employeeRepository.findTop5ByCompanyIdOrderByCreatedAtDesc(companyId).stream()
                 .map(EmployeeResponse::from)
                 .toList();
@@ -78,8 +90,17 @@ public class DashboardService {
                 new DashboardSummaryResponse.Greeting(user.getFirstName(), company.getName()),
                 wallet,
                 nextPayroll,
+                lastPayroll,
                 stats,
                 team);
+    }
+
+    private DashboardSummaryResponse.LastPayroll toLastPayroll(PayrollRun run) {
+        int successRate = run.getEmployeeCount() == 0 ? 0
+                : Math.round(run.getSuccessCount() * 100f / run.getEmployeeCount());
+        LocalDate date = (run.getCompletedAt() != null ? run.getCompletedAt() : run.getCreatedAt())
+                .atZone(ZoneOffset.UTC).toLocalDate();
+        return new DashboardSummaryResponse.LastPayroll(run.getTotalAmount(), date, successRate, run.getEmployeeCount());
     }
 
     private DashboardSummaryResponse.Wallet toWallet(CompanyWallet wallet) {

@@ -107,6 +107,28 @@ public class MoolreClient {
                 node.path("data").asText(null));
     }
 
+    public BankAccount createBankAccount(String firstName, String lastName, String phone, String email, String uref) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", 9);
+        body.put("currency", properties.currency());
+        body.put("firstname", firstName);
+        body.put("lastname", lastName);
+        body.put("phone", phone);
+        body.put("email", email);
+        body.put("uref", uref);
+        body.put("accountnumber", properties.active().accountNumber());
+        JsonNode node = postPublic("/open/account/create", body);
+        if (node.path("status").asInt(0) != 1) {
+            throw new MoolreException(node.path("code").asText("BANK_CREATE_FAILED"),
+                    text(node, "Could not create a bank account number"));
+        }
+        JsonNode data = node.path("data");
+        return new BankAccount(
+                data.path("accountno").asText(null),
+                data.path("accountname").asText(null),
+                data.path("bankname").asText(null));
+    }
+
     private Map<String, Object> base() {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", 1);
@@ -159,5 +181,8 @@ public class MoolreClient {
     }
 
     public record PaymentResult(int status, String code, String message, String data) {
+    }
+
+    public record BankAccount(String accountNo, String accountName, String bankName) {
     }
 }

@@ -9,10 +9,14 @@ public record DashboardSummaryResponse(
         Greeting greeting,
         Wallet wallet,
         NextPayroll nextPayroll,
+        LastPayroll lastPayroll,
         Stats stats,
         List<EmployeeResponse> team) {
 
     public record Greeting(String firstName, String companyName) {
+    }
+
+    public record LastPayroll(BigDecimal amount, LocalDate date, int successRate, int employees) {
     }
 
     public record Wallet(BigDecimal balance, BigDecimal pending, String currency) {

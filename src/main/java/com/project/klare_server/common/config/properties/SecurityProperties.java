@@ -6,7 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "klare.security")
-public record SecurityProperties(Jwt jwt, RefreshToken refreshToken, Login login, PasswordReset passwordReset, Cors cors) {
+public record SecurityProperties(
+        Jwt jwt, RefreshToken refreshToken, Login login, PasswordReset passwordReset,
+        EmailVerification emailVerification, Cors cors) {
 
     public record Jwt(
             String secret,
@@ -25,6 +27,9 @@ public record SecurityProperties(Jwt jwt, RefreshToken refreshToken, Login login
     }
 
     public record PasswordReset(@DefaultValue("PT30M") Duration tokenTtl) {
+    }
+
+    public record EmailVerification(@DefaultValue("P2D") Duration tokenTtl) {
     }
 
     public record Cors(

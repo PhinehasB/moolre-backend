@@ -14,4 +14,6 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     List<PayrollRun> findByCompanyIdAndStatus(UUID companyId, PayrollRunStatus status);
 
     List<PayrollRun> findTop12ByCompanyIdAndStatusOrderByCompletedAtDesc(UUID companyId, PayrollRunStatus status);
+
+    List<PayrollRun> findTop20ByCompanyIdOrderByCreatedAtDesc(UUID companyId);
 }

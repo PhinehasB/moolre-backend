@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CompanyWalletRepository extends JpaRepository<CompanyWallet, UUID> {
 
     Optional<CompanyWallet> findByCompanyId(UUID companyId);
+
+    Optional<CompanyWallet> findByBankAccountNo(String bankAccountNo);
 }
