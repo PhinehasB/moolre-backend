@@ -12,11 +12,13 @@ public record CompanyResponse(
         String registrationNumber,
         Industry industry,
         PayrollBand expectedMonthlyPayroll,
-        CompanyStatus status) {
+        CompanyStatus status,
+        boolean liveMode) {
 
     public static CompanyResponse from(Company company) {
         return new CompanyResponse(
                 company.getId(), company.getName(), company.getRegistrationNumber(),
-                company.getIndustry(), company.getExpectedMonthlyPayroll(), company.getStatus());
+                company.getIndustry(), company.getExpectedMonthlyPayroll(), company.getStatus(),
+                company.isLiveMode());
     }
 }

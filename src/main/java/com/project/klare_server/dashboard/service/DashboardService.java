@@ -56,8 +56,9 @@ public class DashboardService {
         long addedThisMonth = employeeRepository.countByCompanyIdAndCreatedAtGreaterThanEqual(companyId, startOfMonth());
         BigDecimal totalToPay = employeeRepository.sumMonthlySalaryByStatus(companyId, EmployeeStatus.ACTIVE);
 
+        boolean live = company.isLiveMode();
         DashboardSummaryResponse.Wallet wallet = companyWalletRepository.findByCompanyId(companyId)
-                .map(this::toWallet)
+                .map(w -> toWallet(w, live))
                 .orElseGet(() -> new DashboardSummaryResponse.Wallet(BigDecimal.ZERO, BigDecimal.ZERO, "GHS"));
 
         LocalDate payrollDate = nextPayrollDate(company.getPayrollDayOfMonth());
@@ -77,7 +78,7 @@ public class DashboardService {
                 activeEmployees, pendingOnboarding, totalEmployees, addedThisMonth, totalToPay);
 
         DashboardSummaryResponse.LastPayroll lastPayroll = payrollRunRepository
-                .findTop12ByCompanyIdAndStatusOrderByCompletedAtDesc(companyId, PayrollRunStatus.COMPLETED)
+                .findTop12ByCompanyIdAndStatusAndLiveModeOrderByCompletedAtDesc(companyId, PayrollRunStatus.COMPLETED, live)
                 .stream().findFirst()
                 .map(this::toLastPayroll)
                 .orElse(null);
@@ -103,8 +104,9 @@ public class DashboardService {
         return new DashboardSummaryResponse.LastPayroll(run.getTotalAmount(), date, successRate, run.getEmployeeCount());
     }
 
-    private DashboardSummaryResponse.Wallet toWallet(CompanyWallet wallet) {
-        return new DashboardSummaryResponse.Wallet(wallet.getBalance(), wallet.getPending(), wallet.getCurrency());
+    private DashboardSummaryResponse.Wallet toWallet(CompanyWallet wallet, boolean live) {
+        return new DashboardSummaryResponse.Wallet(
+                wallet.activeBalance(live), live ? wallet.getPending() : BigDecimal.ZERO, wallet.getCurrency());
     }
 
     private Instant startOfMonth() {

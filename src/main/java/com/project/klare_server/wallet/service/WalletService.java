@@ -67,24 +67,31 @@ public class WalletService {
         CompanyWallet wallet = walletRepository.findByCompanyId(company.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
-        provisionBankAccount(wallet, user);
+        provisionBankAccount(wallet, user, company.isLiveMode());
 
         WalletResponse.BankTopUp bankTopUp = StringUtils.hasText(wallet.getBankAccountNo())
                 ? new WalletResponse.BankTopUp(wallet.getBankAccountName(), wallet.getBankAccountNo(), wallet.getBankName())
                 : null;
 
         return new WalletResponse(
-                wallet.getBalance(),
-                wallet.getPending(),
+                wallet.activeBalance(company.isLiveMode()),
+                company.isLiveMode() ? wallet.getPending() : BigDecimal.ZERO,
                 wallet.getCurrency(),
                 company.getName(),
                 maskAccount(wallet.getBankAccountNo()),
                 bankTopUp,
-                buildLedger(company.getId()));
+                buildLedger(company.getId(), company.isLiveMode()));
     }
 
-    private void provisionBankAccount(CompanyWallet wallet, BusinessUser user) {
+    private void provisionBankAccount(CompanyWallet wallet, BusinessUser user, boolean live) {
         if (StringUtils.hasText(wallet.getBankAccountNo())) {
+            return;
+        }
+        if (!live) {
+            wallet.setBankAccountNo("0020" + String.format("%07d",
+                    java.util.concurrent.ThreadLocalRandom.current().nextInt(10_000_000)));
+            wallet.setBankAccountName(user.getFirstName() + " " + user.getLastName() + " (Sandbox)");
+            wallet.setBankName("Klare Sandbox Bank");
             return;
         }
         try {
@@ -102,8 +109,8 @@ public class WalletService {
         }
     }
 
-    private List<LedgerEntry> buildLedger(UUID companyId) {
-        return ledgerAssembler.assemble(companyId).stream().limit(LEDGER_SIZE).toList();
+    private List<LedgerEntry> buildLedger(UUID companyId, boolean live) {
+        return ledgerAssembler.assemble(companyId, live).stream().limit(LEDGER_SIZE).toList();
     }
 
     private String maskAccount(String accountNo) {
@@ -115,12 +122,33 @@ public class WalletService {
 
     @Transactional
     public FundingResponse fund(UUID companyId, FundWalletRequest request) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
         String payer = GhanaMobileMoney.normalize(request.payer());
-        String channel = GhanaMobileMoney.resolvePaymentChannel(request.payer());
         String externalRef = "kf_" + UUID.randomUUID().toString().replace("-", "");
 
+        if (!company.isLiveMode()) {
+            CompanyWallet wallet = walletRepository.findByCompanyId(companyId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
+            WalletFunding funding = new WalletFunding();
+            funding.setCompany(company);
+            funding.setExternalRef(externalRef);
+            funding.setPayer(payer);
+            funding.setChannel("SBX");
+            funding.setSource("MOMO");
+            funding.setLiveMode(false);
+            funding.setAmount(request.amount());
+            funding.setStatus(FundingStatus.SUCCESS);
+            funding.setCredited(true);
+            funding.setMessage("Sandbox top-up successful");
+            wallet.creditActive(false, request.amount());
+            fundingRepository.save(funding);
+            return FundingResponse.from(funding);
+        }
+
+        String channel = GhanaMobileMoney.resolvePaymentChannel(request.payer());
         WalletFunding funding = new WalletFunding();
-        funding.setCompany(companyRepository.getReferenceById(companyId));
+        funding.setCompany(company);
         funding.setExternalRef(externalRef);
         funding.setPayer(payer);
         funding.setChannel(channel);

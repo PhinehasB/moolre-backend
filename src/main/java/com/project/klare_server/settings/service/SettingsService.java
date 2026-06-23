@@ -11,6 +11,7 @@ import com.project.klare_server.common.error.UnauthorizedException;
 import com.project.klare_server.company.domain.Company;
 import com.project.klare_server.company.repository.CompanyRepository;
 import com.project.klare_server.settings.dto.ChangePasswordRequest;
+import com.project.klare_server.settings.dto.ModeResponse;
 import com.project.klare_server.settings.dto.SettingsResponse;
 import com.project.klare_server.settings.dto.UpdateCompanyProfileRequest;
 import com.project.klare_server.settings.dto.UpdatePayrollAutomationRequest;
@@ -85,6 +86,14 @@ public class SettingsService {
         }
 
         return new SettingsResponse(null, toCompanyProfile(user, company));
+    }
+
+    @Transactional
+    public ModeResponse setMode(UUID companyId, boolean live) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
+        company.setLiveMode(live);
+        return new ModeResponse(company.isLiveMode());
     }
 
     @Transactional

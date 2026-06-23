@@ -27,6 +27,9 @@ public class CompanyWallet extends BaseEntity {
     @Column(name = "balance", nullable = false, precision = 19, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
 
+    @Column(name = "sandbox_balance", nullable = false, precision = 19, scale = 2)
+    private BigDecimal sandboxBalance = BigDecimal.ZERO;
+
     @Column(name = "pending", nullable = false, precision = 19, scale = 2)
     private BigDecimal pending = BigDecimal.ZERO;
 
@@ -44,4 +47,24 @@ public class CompanyWallet extends BaseEntity {
 
     @Column(name = "bank_name", length = 120)
     private String bankName;
+
+    public BigDecimal activeBalance(boolean live) {
+        return live ? balance : sandboxBalance;
+    }
+
+    public void creditActive(boolean live, BigDecimal amount) {
+        if (live) {
+            balance = balance.add(amount);
+        } else {
+            sandboxBalance = sandboxBalance.add(amount);
+        }
+    }
+
+    public void debitActive(boolean live, BigDecimal amount) {
+        if (live) {
+            balance = balance.subtract(amount);
+        } else {
+            sandboxBalance = sandboxBalance.subtract(amount);
+        }
+    }
 }

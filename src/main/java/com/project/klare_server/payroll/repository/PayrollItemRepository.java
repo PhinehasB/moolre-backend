@@ -15,7 +15,8 @@ public interface PayrollItemRepository extends JpaRepository<PayrollItem, UUID> 
             select count(distinct i.employee.id) from PayrollItem i
             where i.payrollRun.company.id = :companyId
               and i.payrollRun.periodYear = :year
+              and i.payrollRun.liveMode = :live
               and i.status = com.project.klare_server.payroll.domain.PayrollItemStatus.PAID
             """)
-    long countDistinctPaidEmployees(@Param("companyId") UUID companyId, @Param("year") int year);
+    long countDistinctPaidEmployees(@Param("companyId") UUID companyId, @Param("year") int year, @Param("live") boolean live);
 }

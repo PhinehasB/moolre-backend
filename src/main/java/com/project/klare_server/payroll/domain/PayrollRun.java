@@ -39,6 +39,9 @@ public class PayrollRun extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private PayrollRunStatus status = PayrollRunStatus.PENDING_CONFIRMATION;
 
+    @Column(name = "live_mode", nullable = false)
+    private boolean liveMode = true;
+
     @Column(name = "employee_count", nullable = false)
     private int employeeCount;
 

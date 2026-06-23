@@ -41,6 +41,9 @@ public class WalletFunding extends BaseEntity {
     @Column(name = "source", nullable = false, length = 10)
     private String source = "MOMO";
 
+    @Column(name = "live_mode", nullable = false)
+    private boolean liveMode = true;
+
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 

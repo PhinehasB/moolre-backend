@@ -10,5 +10,6 @@ public record PayrollInitiationResponse(
         BigDecimal totalAmount,
         BigDecimal walletBalance,
         String maskedPhone,
-        Instant codeExpiresAt) {
+        Instant codeExpiresAt,
+        String sandboxCode) {
 }

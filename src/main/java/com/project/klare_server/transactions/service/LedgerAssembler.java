@@ -26,10 +26,10 @@ public class LedgerAssembler {
         this.payrollRunRepository = payrollRunRepository;
     }
 
-    public List<LedgerEntry> assemble(UUID companyId) {
+    public List<LedgerEntry> assemble(UUID companyId, boolean live) {
         List<LedgerEntry> entries = new ArrayList<>();
 
-        for (WalletFunding funding : fundingRepository.findTop200ByCompanyIdOrderByCreatedAtDesc(companyId)) {
+        for (WalletFunding funding : fundingRepository.findTop200ByCompanyIdAndLiveModeOrderByCreatedAtDesc(companyId, live)) {
             String method = "BANK".equals(funding.getSource()) ? "Bank transfer" : "MoMo";
             entries.add(new LedgerEntry(
                     funding.getCreatedAt(),
@@ -40,7 +40,7 @@ public class LedgerAssembler {
                     funding.getAmount()));
         }
 
-        for (PayrollRun run : payrollRunRepository.findTop100ByCompanyIdOrderByCreatedAtDesc(companyId)) {
+        for (PayrollRun run : payrollRunRepository.findTop100ByCompanyIdAndLiveModeOrderByCreatedAtDesc(companyId, live)) {
             if (run.getStatus() != PayrollRunStatus.COMPLETED
                     && run.getStatus() != PayrollRunStatus.PROCESSING
                     && run.getStatus() != PayrollRunStatus.FAILED) {

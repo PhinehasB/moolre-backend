@@ -49,10 +49,11 @@ public class ReportsService {
         Company company = loadCompany(userId);
         int year = currentYear();
         List<PayrollRun> runs = payrollRunRepository
-                .findByCompanyIdAndStatusAndPeriodYearOrderByPeriodMonthDesc(company.getId(), PayrollRunStatus.COMPLETED, year);
+                .findByCompanyIdAndStatusAndPeriodYearAndLiveModeOrderByPeriodMonthDesc(
+                        company.getId(), PayrollRunStatus.COMPLETED, year, company.isLiveMode());
 
         BigDecimal totalPaid = runs.stream().map(PayrollRun::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        long employeesPaid = payrollItemRepository.countDistinctPaidEmployees(company.getId(), year);
+        long employeesPaid = payrollItemRepository.countDistinctPaidEmployees(company.getId(), year, company.isLiveMode());
 
         ReportsOverviewResponse.Stats stats = new ReportsOverviewResponse.Stats(
                 year, totalPaid, runs.size(), employeesPaid, runs.size());
@@ -104,7 +105,8 @@ public class ReportsService {
         Company company = loadCompany(userId);
         int year = currentYear();
         List<PayrollRun> runs = payrollRunRepository
-                .findByCompanyIdAndStatusAndPeriodYearOrderByPeriodMonthDesc(company.getId(), PayrollRunStatus.COMPLETED, year);
+                .findByCompanyIdAndStatusAndPeriodYearAndLiveModeOrderByPeriodMonthDesc(
+                        company.getId(), PayrollRunStatus.COMPLETED, year, company.isLiveMode());
         return new ReportFile("tax-summary-" + year + ".pdf",
                 pdfReports.taxSummaryPdf(company.getName(), year, runs), "application/pdf");
     }

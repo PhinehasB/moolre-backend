@@ -92,7 +92,7 @@ public class PayrollService {
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
         int activeEmployees = (int) employeeRepository.countByCompanyIdAndStatus(companyId, EmployeeStatus.ACTIVE);
         BigDecimal total = employeeRepository.sumMonthlySalaryByStatus(companyId, EmployeeStatus.ACTIVE);
-        BigDecimal balance = walletBalance(companyId);
+        BigDecimal balance = walletBalance(companyId, company.isLiveMode());
         boolean covers = balance.compareTo(total) >= 0;
         BigDecimal shortfall = covers ? BigDecimal.ZERO : total.subtract(balance);
 
@@ -107,7 +107,8 @@ public class PayrollService {
                 company.isAutoPayrollEnabled() ? "ACTIVE" : "PAUSED");
 
         List<PayrollRunResponse> history = payrollRunRepository
-                .findTop12ByCompanyIdAndStatusOrderByCompletedAtDesc(companyId, PayrollRunStatus.COMPLETED)
+                .findTop12ByCompanyIdAndStatusAndLiveModeOrderByCompletedAtDesc(
+                        companyId, PayrollRunStatus.COMPLETED, company.isLiveMode())
                 .stream().map(PayrollRunResponse::from).toList();
 
         return new PayrollOverviewResponse(run, schedule, history);
@@ -130,7 +131,7 @@ public class PayrollService {
 
         CompanyWallet wallet = companyWalletRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, "No wallet is set up for this company"));
-        if (wallet.getBalance().compareTo(total) < 0) {
+        if (wallet.activeBalance(company.isLiveMode()).compareTo(total) < 0) {
             throw new ApiException(ErrorCode.CONFLICT, "Your wallet does not cover this payroll. Top up first.");
         }
 
@@ -142,6 +143,7 @@ public class PayrollService {
 
         PayrollRun run = new PayrollRun();
         run.setCompany(company);
+        run.setLiveMode(company.isLiveMode());
         run.setPeriodYear(today.getYear());
         run.setPeriodMonth(today.getMonthValue());
         run.setStatus(PayrollRunStatus.PENDING_CONFIRMATION);
@@ -167,8 +169,9 @@ public class PayrollService {
         notificationService.payrollCode(admin.getEmail(), admin.getPhone(), admin.getFirstName(), code);
 
         return new PayrollInitiationResponse(
-                run.getId(), activeEmployees.size(), total, wallet.getBalance(),
-                maskPhone(admin.getPhone()), run.getConfirmationExpiresAt());
+                run.getId(), activeEmployees.size(), total, wallet.activeBalance(company.isLiveMode()),
+                maskPhone(admin.getPhone()), run.getConfirmationExpiresAt(),
+                company.isLiveMode() ? null : code);
     }
 
     @Transactional
@@ -193,24 +196,25 @@ public class PayrollService {
             throw new ApiException(ErrorCode.INVALID_TOKEN, "Incorrect confirmation code");
         }
 
+        boolean live = run.getCompany().isLiveMode();
         CompanyWallet wallet = companyWalletRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, "No wallet is set up for this company"));
-        if (wallet.getBalance().compareTo(run.getTotalAmount()) < 0) {
+        if (wallet.activeBalance(live).compareTo(run.getTotalAmount()) < 0) {
             throw new ApiException(ErrorCode.CONFLICT, "Your wallet no longer covers this payroll");
         }
         run.setConfirmationCodeHash(null);
-        execute(run, wallet);
+        execute(run, wallet, live);
         return PayrollRunResponse.from(run);
     }
 
-    private void execute(PayrollRun run, CompanyWallet wallet) {
+    private void execute(PayrollRun run, CompanyWallet wallet, boolean live) {
         int paid = 0;
         int failed = 0;
         int pending = 0;
         BigDecimal committed = BigDecimal.ZERO;
 
         for (PayrollItem item : payrollItemRepository.findByPayrollRunIdOrderByEmployeeNameAsc(run.getId())) {
-            PayrollItemStatus result = disburse(item);
+            PayrollItemStatus result = disburse(item, live);
             item.setStatus(result);
             switch (result) {
                 case PAID -> {
@@ -227,7 +231,7 @@ public class PayrollService {
 
         BigDecimal serviceFee = committed.multiply(serviceFeePercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        wallet.setBalance(wallet.getBalance().subtract(committed).subtract(serviceFee));
+        wallet.debitActive(live, committed.add(serviceFee));
         run.setServiceFee(serviceFee);
         run.setSuccessCount(paid);
         run.setFailureCount(failed);
@@ -239,7 +243,11 @@ public class PayrollService {
         }
     }
 
-    private PayrollItemStatus disburse(PayrollItem item) {
+    private PayrollItemStatus disburse(PayrollItem item, boolean live) {
+        if (!live) {
+            item.setTransactionId("SBX-" + item.getExternalRef());
+            return PayrollItemStatus.PAID;
+        }
         String channel;
         String receiver;
         try {
@@ -280,6 +288,7 @@ public class PayrollService {
         if (run.getStatus() != PayrollRunStatus.PROCESSING) {
             return PayrollRunResponse.from(run);
         }
+        boolean live = run.getCompany().isLiveMode();
         CompanyWallet wallet = companyWalletRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, "No wallet is set up for this company"));
 
@@ -297,7 +306,7 @@ public class PayrollService {
                     } else if (tx != null && tx == 2) {
                         item.setStatus(PayrollItemStatus.FAILED);
                         item.setFailureReason("Transfer failed");
-                        wallet.setBalance(wallet.getBalance().add(item.getAmount()));
+                        wallet.creditActive(live, item.getAmount());
                     }
                 } catch (MoolreException ignored) {
                     // leave pending and try again on the next reconcile
@@ -328,8 +337,8 @@ public class PayrollService {
         }
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        if (payrollRunRepository.existsByCompanyIdAndPeriodYearAndPeriodMonthAndStatusIn(
-                companyId, today.getYear(), today.getMonthValue(),
+        if (payrollRunRepository.existsByCompanyIdAndPeriodYearAndPeriodMonthAndLiveModeAndStatusIn(
+                companyId, today.getYear(), today.getMonthValue(), company.isLiveMode(),
                 List.of(PayrollRunStatus.COMPLETED, PayrollRunStatus.PROCESSING))) {
             return AutoRunResult.of(AutoRunResult.Outcome.ALREADY_RUN, null, null, null);
         }
@@ -341,21 +350,23 @@ public class PayrollService {
         BigDecimal total = activeEmployees.stream()
                 .map(Employee::getMonthlySalary).reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        boolean live = company.isLiveMode();
         CompanyWallet wallet = companyWalletRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, "No wallet is set up for this company"));
         BusinessUser admin = businessUserRepository.findById(initiatedByUserId).orElse(null);
 
-        if (wallet.getBalance().compareTo(total) < 0) {
-            BigDecimal shortfall = total.subtract(wallet.getBalance());
+        if (wallet.activeBalance(live).compareTo(total) < 0) {
+            BigDecimal shortfall = total.subtract(wallet.activeBalance(live));
             if (admin != null) {
                 notificationService.topUpReminder(admin.getEmail(), admin.getPhone(), admin.getFirstName(),
                         company.getName(), shortfall.toPlainString(), today.toString());
             }
-            return AutoRunResult.of(AutoRunResult.Outcome.INSUFFICIENT_FUNDS, null, total, wallet.getBalance());
+            return AutoRunResult.of(AutoRunResult.Outcome.INSUFFICIENT_FUNDS, null, total, wallet.activeBalance(live));
         }
 
         PayrollRun run = new PayrollRun();
         run.setCompany(company);
+        run.setLiveMode(live);
         run.setPeriodYear(today.getYear());
         run.setPeriodMonth(today.getMonthValue());
         run.setStatus(PayrollRunStatus.PROCESSING);
@@ -375,13 +386,13 @@ public class PayrollService {
             payrollItemRepository.save(item);
         }
 
-        execute(run, wallet);
+        execute(run, wallet, live);
 
         if (admin != null) {
             notificationService.automaticPayrollComplete(admin.getEmail(), admin.getPhone(), admin.getFirstName(),
                     company.getName(), total.toPlainString(), run.getSuccessCount(), run.getFailureCount());
         }
-        return AutoRunResult.of(AutoRunResult.Outcome.RAN, PayrollRunResponse.from(run), total, wallet.getBalance());
+        return AutoRunResult.of(AutoRunResult.Outcome.RAN, PayrollRunResponse.from(run), total, wallet.activeBalance(live));
     }
 
     @Transactional(readOnly = true)
@@ -402,9 +413,9 @@ public class PayrollService {
         return new ReportFile(filename, csv.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    private BigDecimal walletBalance(UUID companyId) {
+    private BigDecimal walletBalance(UUID companyId, boolean live) {
         return companyWalletRepository.findByCompanyId(companyId)
-                .map(CompanyWallet::getBalance)
+                .map(wallet -> wallet.activeBalance(live))
                 .orElse(BigDecimal.ZERO);
     }
 

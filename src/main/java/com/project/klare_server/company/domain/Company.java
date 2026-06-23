@@ -37,6 +37,9 @@ public class Company extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private CompanyStatus status = CompanyStatus.PENDING_VERIFICATION;
 
+    @Column(name = "live_mode", nullable = false)
+    private boolean liveMode = true;
+
     @Column(name = "auto_payroll_enabled", nullable = false)
     private boolean autoPayrollEnabled = true;
 

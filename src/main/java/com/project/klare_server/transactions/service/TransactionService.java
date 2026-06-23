@@ -60,10 +60,11 @@ public class TransactionService {
         BusinessUser user = businessUserRepository.findById(userId)
                 .orElseThrow(() -> new UnauthorizedException("Account no longer exists"));
         UUID companyId = user.getCompany().getId();
+        boolean live = user.getCompany().isLiveMode();
         TransactionFilter effective = filter == null ? TransactionFilter.ALL : filter;
         String term = StringUtils.hasText(query) ? query.trim().toLowerCase(Locale.ROOT) : null;
 
-        return ledgerAssembler.assemble(companyId).stream()
+        return ledgerAssembler.assemble(companyId, live).stream()
                 .filter(entry -> matchesFilter(entry, effective))
                 .filter(entry -> matchesQuery(entry, term))
                 .toList();
