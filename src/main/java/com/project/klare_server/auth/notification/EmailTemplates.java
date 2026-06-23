@@ -49,6 +49,80 @@ final class EmailTemplates {
         return layout("You've been added to payroll on Klare", "You've been added to payroll on Klare", body, null, null);
     }
 
+    static String payrollEstimate(String firstName, String companyName, String payDate, String total, int employees) {
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Payroll is coming up</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#43564f;">
+                  Klare will automatically run payroll for <strong style="color:#0f2a21;">%s</strong> on <strong>%s</strong>.
+                  Here's the estimate so you can make sure your wallet is funded:
+                </p>
+                <p style="margin:0 0 6px;font-size:15px;line-height:1.8;color:#43564f;">Employees: <strong style="color:#0f2a21;">%d</strong></p>
+                <p style="margin:0 0 0;font-size:15px;line-height:1.8;color:#43564f;">Total to pay: <strong style="color:#0f2a21;">GHS %s</strong></p>
+                """.formatted(escape(firstName), escape(companyName), escape(payDate), employees, escape(total));
+        return layout("Your upcoming Klare payroll", "Your upcoming Klare payroll estimate", body, null, null);
+    }
+
+    static String automaticPayrollComplete(String firstName, String companyName, String amount, int paid, int failed) {
+        String failedLine = failed > 0
+                ? "<p style=\"margin:0;font-size:15px;line-height:1.8;color:#b4453a;\">Failed: <strong>" + failed + "</strong> (we'll retry and update you)</p>"
+                : "";
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Payroll has been paid</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#43564f;">
+                  Klare just ran payroll automatically for <strong style="color:#0f2a21;">%s</strong>. Your team has been paid.
+                </p>
+                <p style="margin:0 0 6px;font-size:15px;line-height:1.8;color:#43564f;">Paid: <strong style="color:#0f2a21;">%d employees</strong></p>
+                <p style="margin:0 0 6px;font-size:15px;line-height:1.8;color:#43564f;">Total disbursed: <strong style="color:#0f2a21;">GHS %s</strong></p>
+                %s
+                """.formatted(escape(firstName), escape(companyName), paid, escape(amount), failedLine);
+        return layout("Klare payroll complete", "Klare ran your payroll", body, null, null);
+    }
+
+    static String topUpReminder(String firstName, String companyName, String shortfall, String payDate) {
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Top up to run payroll</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#43564f;">
+                  Payroll for <strong style="color:#0f2a21;">%s</strong> was due on <strong>%s</strong>, but your wallet
+                  doesn't have enough to cover it. We didn't pay anyone so nothing is half-done.
+                </p>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.8;color:#43564f;">
+                  Please top up at least <strong style="color:#b4453a;">GHS %s</strong> and Klare will run it on the next cycle —
+                  or run it manually from your dashboard once funded.
+                </p>
+                """.formatted(escape(firstName), escape(companyName), escape(payDate), escape(shortfall));
+        return layout("Top up to run your Klare payroll", "Top up to run your Klare payroll", body, null, null);
+    }
+
+    static String payrollCode(String firstName, String code) {
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Confirm your payroll</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#43564f;">
+                  Use this code to confirm and run your payroll. It expires in 10 minutes.
+                </p>
+                <p style="margin:0 0 8px;font-size:34px;line-height:1.2;letter-spacing:8px;color:#15604a;font-weight:700;">%s</p>
+                <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#8a978f;">
+                  If you didn't start a payroll, ignore this email and do not share the code with anyone.
+                </p>
+                """.formatted(escape(firstName), escape(code));
+        return layout("Your Klare payroll code", "Your Klare payroll confirmation code", body, null, null);
+    }
+
+    static String paydayReminder(String firstName, String companyName, String payDate) {
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Payday is almost here</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 0;font-size:15px;line-height:1.6;color:#43564f;">
+                  Your salary from <strong style="color:#0f2a21;">%s</strong> is scheduled to arrive on <strong>%s</strong>
+                  through Klare. Your money, already sorted.
+                </p>
+                """.formatted(escape(firstName), escape(companyName), escape(payDate));
+        return layout("Payday is almost here", "Your Klare payday is almost here", body, null, null);
+    }
+
     private static String button(String label, String href) {
         return """
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0;">

@@ -1,6 +1,5 @@
 package com.project.klare_server.employee.service;
 
-import com.project.klare_server.auth.notification.EmailService;
 import com.project.klare_server.common.error.ApiException;
 import com.project.klare_server.common.error.ErrorCode;
 import com.project.klare_server.common.error.ResourceNotFoundException;
@@ -10,6 +9,7 @@ import com.project.klare_server.employee.domain.Employee;
 import com.project.klare_server.employee.domain.EmployeeStatus;
 import com.project.klare_server.employee.dto.ImportResultResponse;
 import com.project.klare_server.employee.repository.EmployeeRepository;
+import com.project.klare_server.notification.NotificationService;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -44,15 +44,15 @@ public class EmployeeImportService {
 
     private final EmployeeRepository employeeRepository;
     private final CompanyRepository companyRepository;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     public EmployeeImportService(
             EmployeeRepository employeeRepository,
             CompanyRepository companyRepository,
-            EmailService emailService) {
+            NotificationService notificationService) {
         this.employeeRepository = employeeRepository;
         this.companyRepository = companyRepository;
-        this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -86,7 +86,8 @@ public class EmployeeImportService {
 
         if (sendInvitations) {
             for (Employee employee : toCreate) {
-                emailService.sendEmployeeInvitation(employee.getEmail(), employee.getFirstName(), company.getName());
+                notificationService.employeeInvitation(employee.getEmail(), employee.getPhone(),
+                        employee.getFirstName(), company.getName());
             }
         }
 

@@ -8,6 +8,7 @@ public record MoolreProperties(
         @DefaultValue("sandbox") String env,
         String callbackUrl,
         @DefaultValue("GHS") String currency,
+        @DefaultValue("Klare") String smsSenderId,
         Credentials sandbox,
         Credentials live) {
 
@@ -17,7 +18,8 @@ public record MoolreProperties(
             String apiKey,
             String apiPubkey,
             String accountNumber,
-            String callbackSecret) {
+            String callbackSecret,
+            String vasKey) {
     }
 
     public Credentials active() {

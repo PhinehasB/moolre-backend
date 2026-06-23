@@ -1,6 +1,5 @@
 package com.project.klare_server.employee.service;
 
-import com.project.klare_server.auth.notification.EmailService;
 import com.project.klare_server.common.error.ConflictException;
 import com.project.klare_server.common.error.ResourceNotFoundException;
 import com.project.klare_server.common.web.PageResponse;
@@ -13,6 +12,7 @@ import com.project.klare_server.employee.dto.EmployeeResponse;
 import com.project.klare_server.employee.dto.EmployeeStatsResponse;
 import com.project.klare_server.employee.dto.UpdateEmployeeRequest;
 import com.project.klare_server.employee.repository.EmployeeRepository;
+import com.project.klare_server.notification.NotificationService;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
@@ -25,15 +25,15 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final CompanyRepository companyRepository;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     public EmployeeService(
             EmployeeRepository employeeRepository,
             CompanyRepository companyRepository,
-            EmailService emailService) {
+            NotificationService notificationService) {
         this.employeeRepository = employeeRepository;
         this.companyRepository = companyRepository;
-        this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -64,7 +64,8 @@ public class EmployeeService {
         }
 
         if (request.sendInvitation() == null || request.sendInvitation()) {
-            emailService.sendEmployeeInvitation(employee.getEmail(), employee.getFirstName(), company.getName());
+            notificationService.employeeInvitation(employee.getEmail(), employee.getPhone(),
+                    employee.getFirstName(), company.getName());
         }
 
         return EmployeeResponse.from(employee);

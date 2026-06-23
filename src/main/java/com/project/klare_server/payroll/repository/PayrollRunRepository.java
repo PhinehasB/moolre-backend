@@ -2,12 +2,16 @@ package com.project.klare_server.payroll.repository;
 
 import com.project.klare_server.payroll.domain.PayrollRun;
 import com.project.klare_server.payroll.domain.PayrollRunStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
+
+    boolean existsByCompanyIdAndPeriodYearAndPeriodMonthAndStatusIn(
+            UUID companyId, int periodYear, int periodMonth, Collection<PayrollRunStatus> statuses);
 
     Optional<PayrollRun> findByIdAndCompanyId(UUID id, UUID companyId);
 

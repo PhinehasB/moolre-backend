@@ -25,7 +25,7 @@ import com.project.klare_server.payroll.domain.PayrollRunStatus;
 import com.project.klare_server.payroll.dto.PayrollInitiationResponse;
 import com.project.klare_server.payroll.dto.PayrollOverviewResponse;
 import com.project.klare_server.payroll.dto.PayrollRunResponse;
-import com.project.klare_server.payroll.notification.SmsService;
+import com.project.klare_server.notification.NotificationService;
 import com.project.klare_server.payroll.repository.PayrollItemRepository;
 import com.project.klare_server.payroll.repository.PayrollRunRepository;
 import java.math.BigDecimal;
@@ -55,7 +55,7 @@ public class PayrollService {
     private final PayrollRunRepository payrollRunRepository;
     private final PayrollItemRepository payrollItemRepository;
     private final PayrollConfirmationAttemptService attemptService;
-    private final SmsService smsService;
+    private final NotificationService notificationService;
     private final MoolreClient moolreClient;
     private final String pepper;
     private final BigDecimal serviceFeePercent;
@@ -69,7 +69,7 @@ public class PayrollService {
             PayrollRunRepository payrollRunRepository,
             PayrollItemRepository payrollItemRepository,
             PayrollConfirmationAttemptService attemptService,
-            SmsService smsService,
+            NotificationService notificationService,
             MoolreClient moolreClient,
             @org.springframework.beans.factory.annotation.Value("${klare.payroll.service-fee-percent:0.5}") BigDecimal serviceFeePercent,
             SecurityProperties securityProperties) {
@@ -80,7 +80,7 @@ public class PayrollService {
         this.payrollRunRepository = payrollRunRepository;
         this.payrollItemRepository = payrollItemRepository;
         this.attemptService = attemptService;
-        this.smsService = smsService;
+        this.notificationService = notificationService;
         this.moolreClient = moolreClient;
         this.serviceFeePercent = serviceFeePercent;
         this.pepper = securityProperties.refreshToken().pepper();
@@ -164,7 +164,7 @@ public class PayrollService {
             payrollItemRepository.save(item);
         }
 
-        smsService.sendPayrollConfirmationCode(admin.getPhone(), code);
+        notificationService.payrollCode(admin.getEmail(), admin.getPhone(), admin.getFirstName(), code);
 
         return new PayrollInitiationResponse(
                 run.getId(), activeEmployees.size(), total, wallet.getBalance(),
@@ -199,14 +199,17 @@ public class PayrollService {
             throw new ApiException(ErrorCode.CONFLICT, "Your wallet no longer covers this payroll");
         }
         run.setConfirmationCodeHash(null);
+        execute(run, wallet);
+        return PayrollRunResponse.from(run);
+    }
 
-        List<PayrollItem> items = payrollItemRepository.findByPayrollRunIdOrderByEmployeeNameAsc(runId);
+    private void execute(PayrollRun run, CompanyWallet wallet) {
         int paid = 0;
         int failed = 0;
         int pending = 0;
         BigDecimal committed = BigDecimal.ZERO;
 
-        for (PayrollItem item : items) {
+        for (PayrollItem item : payrollItemRepository.findByPayrollRunIdOrderByEmployeeNameAsc(run.getId())) {
             PayrollItemStatus result = disburse(item);
             item.setStatus(result);
             switch (result) {
@@ -232,10 +235,8 @@ public class PayrollService {
             run.setStatus(PayrollRunStatus.PROCESSING);
         } else {
             run.setStatus(PayrollRunStatus.COMPLETED);
-            run.setCompletedAt(now);
+            run.setCompletedAt(Instant.now());
         }
-
-        return PayrollRunResponse.from(run);
     }
 
     private PayrollItemStatus disburse(PayrollItem item) {
@@ -318,6 +319,71 @@ public class PayrollService {
         return PayrollRunResponse.from(run);
     }
 
+    @Transactional
+    public AutoRunResult tryAutoRun(UUID companyId, UUID initiatedByUserId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
+        if (!company.isAutoPayrollEnabled()) {
+            return AutoRunResult.of(AutoRunResult.Outcome.AUTO_DISABLED, null, null, null);
+        }
+
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        if (payrollRunRepository.existsByCompanyIdAndPeriodYearAndPeriodMonthAndStatusIn(
+                companyId, today.getYear(), today.getMonthValue(),
+                List.of(PayrollRunStatus.COMPLETED, PayrollRunStatus.PROCESSING))) {
+            return AutoRunResult.of(AutoRunResult.Outcome.ALREADY_RUN, null, null, null);
+        }
+
+        List<Employee> activeEmployees = employeeRepository.findByCompanyIdAndStatus(companyId, EmployeeStatus.ACTIVE);
+        if (activeEmployees.isEmpty()) {
+            return AutoRunResult.of(AutoRunResult.Outcome.NO_ACTIVE_EMPLOYEES, null, null, null);
+        }
+        BigDecimal total = activeEmployees.stream()
+                .map(Employee::getMonthlySalary).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        CompanyWallet wallet = companyWalletRepository.findByCompanyId(companyId)
+                .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, "No wallet is set up for this company"));
+        BusinessUser admin = businessUserRepository.findById(initiatedByUserId).orElse(null);
+
+        if (wallet.getBalance().compareTo(total) < 0) {
+            BigDecimal shortfall = total.subtract(wallet.getBalance());
+            if (admin != null) {
+                notificationService.topUpReminder(admin.getEmail(), admin.getPhone(), admin.getFirstName(),
+                        company.getName(), shortfall.toPlainString(), today.toString());
+            }
+            return AutoRunResult.of(AutoRunResult.Outcome.INSUFFICIENT_FUNDS, null, total, wallet.getBalance());
+        }
+
+        PayrollRun run = new PayrollRun();
+        run.setCompany(company);
+        run.setPeriodYear(today.getYear());
+        run.setPeriodMonth(today.getMonthValue());
+        run.setStatus(PayrollRunStatus.PROCESSING);
+        run.setEmployeeCount(activeEmployees.size());
+        run.setTotalAmount(total);
+        run.setInitiatedByUserId(initiatedByUserId);
+        payrollRunRepository.save(run);
+
+        for (Employee employee : activeEmployees) {
+            PayrollItem item = new PayrollItem();
+            item.setPayrollRun(run);
+            item.setEmployee(employee);
+            item.setEmployeeName(employee.getFirstName() + " " + employee.getLastName());
+            item.setAmount(employee.getMonthlySalary());
+            item.setStatus(PayrollItemStatus.PENDING);
+            item.setExternalRef("kp_" + UUID.randomUUID().toString().replace("-", ""));
+            payrollItemRepository.save(item);
+        }
+
+        execute(run, wallet);
+
+        if (admin != null) {
+            notificationService.automaticPayrollComplete(admin.getEmail(), admin.getPhone(), admin.getFirstName(),
+                    company.getName(), total.toPlainString(), run.getSuccessCount(), run.getFailureCount());
+        }
+        return AutoRunResult.of(AutoRunResult.Outcome.RAN, PayrollRunResponse.from(run), total, wallet.getBalance());
+    }
+
     @Transactional(readOnly = true)
     public ReportFile report(UUID companyId, UUID runId) {
         PayrollRun run = payrollRunRepository.findByIdAndCompanyId(runId, companyId)
@@ -366,5 +432,16 @@ public class PayrollService {
     }
 
     public record ReportFile(String filename, byte[] content) {
+    }
+
+    public record AutoRunResult(Outcome outcome, PayrollRunResponse run, BigDecimal total, BigDecimal walletBalance) {
+
+        public enum Outcome {
+            RAN, AUTO_DISABLED, ALREADY_RUN, NO_ACTIVE_EMPLOYEES, INSUFFICIENT_FUNDS
+        }
+
+        static AutoRunResult of(Outcome outcome, PayrollRunResponse run, BigDecimal total, BigDecimal walletBalance) {
+            return new AutoRunResult(outcome, run, total, walletBalance);
+        }
     }
 }

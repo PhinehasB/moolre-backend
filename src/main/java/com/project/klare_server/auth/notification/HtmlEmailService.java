@@ -50,6 +50,41 @@ public class HtmlEmailService implements EmailService {
                 "company: " + companyName);
     }
 
+    @Override
+    public void sendPayrollEstimate(String toEmail, String firstName, String companyName, String payDate, String total, int employees) {
+        send(toEmail, "Your upcoming Klare payroll",
+                EmailTemplates.payrollEstimate(firstName, companyName, payDate, total, employees),
+                "estimate: GHS " + total + " for " + employees + " on " + payDate);
+    }
+
+    @Override
+    public void sendAutomaticPayrollComplete(String toEmail, String firstName, String companyName, String amount, int paid, int failed) {
+        send(toEmail, "Klare ran your payroll",
+                EmailTemplates.automaticPayrollComplete(firstName, companyName, amount, paid, failed),
+                "paid " + paid + " (failed " + failed + ") total GHS " + amount);
+    }
+
+    @Override
+    public void sendTopUpReminder(String toEmail, String firstName, String companyName, String shortfall, String payDate) {
+        send(toEmail, "Top up to run your Klare payroll",
+                EmailTemplates.topUpReminder(firstName, companyName, shortfall, payDate),
+                "top up GHS " + shortfall + " for payroll on " + payDate);
+    }
+
+    @Override
+    public void sendPaydayReminder(String toEmail, String firstName, String companyName, String payDate) {
+        send(toEmail, "Payday is almost here",
+                EmailTemplates.paydayReminder(firstName, companyName, payDate),
+                "payday " + payDate);
+    }
+
+    @Override
+    public void sendPayrollCode(String toEmail, String firstName, String code) {
+        send(toEmail, "Your Klare payroll code",
+                EmailTemplates.payrollCode(firstName, code),
+                "payroll code: " + code);
+    }
+
     private void send(String to, String subject, String html, String fallbackLogLine) {
         JavaMailSender sender = mailSenderProvider.getIfAvailable();
         if (sender == null || !StringUtils.hasText(mailHost)) {

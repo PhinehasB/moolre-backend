@@ -142,10 +142,12 @@ klare:
     ttl: ${IDEMPOTENCY_TTL:PT24H}
   payroll:
     service-fee-percent: ${PAYROLL_SERVICE_FEE_PERCENT:0.5}
+    auto-run-cron: ${PAYROLL_AUTO_RUN_CRON:0 0 9 * * *}
   moolre:
     env: ${MOOLRE_ENV:sandbox}
     callback-url: ${MOOLRE_CALLBACK_URL:}
     currency: GHS
+    sms-sender-id: ${MOOLRE_SMS_SENDER_ID:Klare}
     sandbox:
       base-url: ${MOOLRE_SANDBOX_BASE_URL:https://sandbox.moolre.com}
       api-user: ${MOOLRE_SANDBOX_API_USER:}
@@ -153,6 +155,7 @@ klare:
       api-pubkey: ${MOOLRE_SANDBOX_API_PUBKEY:}
       account-number: ${MOOLRE_SANDBOX_ACCOUNT_NUMBER:}
       callback-secret: ${MOOLRE_SANDBOX_CALLBACK_SECRET:}
+      vas-key: ${MOOLRE_SANDBOX_VASKEY:}
     live:
       base-url: ${MOOLRE_LIVE_BASE_URL:https://api.moolre.com}
       api-user: ${MOOLRE_LIVE_API_USER:}
@@ -160,3 +163,4 @@ klare:
       api-pubkey: ${MOOLRE_LIVE_API_PUBKEY:}
       account-number: ${MOOLRE_LIVE_ACCOUNT_NUMBER:}
       callback-secret: ${MOOLRE_LIVE_CALLBACK_SECRET:}
+      vas-key: ${MOOLRE_LIVE_VASKEY:}

@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
 @Component
@@ -127,6 +129,38 @@ public class MoolreClient {
                 data.path("accountno").asText(null),
                 data.path("accountname").asText(null),
                 data.path("bankname").asText(null));
+    }
+
+    public boolean sendSms(String recipient, String message) {
+        if (!StringUtils.hasText(properties.active().vasKey())) {
+            log.warn("Moolre SMS skipped (no VAS key configured) -> to={}", recipient);
+            return false;
+        }
+        Map<String, Object> messageEntry = new LinkedHashMap<>();
+        messageEntry.put("recipient", GhanaMobileMoney.toInternational(recipient).replace("+", ""));
+        messageEntry.put("message", message);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", 1);
+        body.put("senderid", properties.smsSenderId());
+        body.put("messages", List.of(messageEntry));
+        try {
+            JsonNode node = restClient.post()
+                    .uri("/open/sms/send")
+                    .header("X-API-USER", properties.active().apiUser())
+                    .header("X-API-VASKEY", properties.active().vasKey())
+                    .header("Content-Type", "application/json")
+                    .body(body)
+                    .exchange((request, response) -> objectMapper.readTree(response.getBody()));
+            if (node.path("status").asInt(0) == 1) {
+                return true;
+            }
+            log.warn("Moolre SMS not sent to={} code={} message={}", recipient,
+                    node.path("code").asText(null), text(node, null));
+            return false;
+        } catch (Exception ex) {
+            log.error("Moolre SMS failed to={} error={}", recipient, ex.toString());
+            return false;
+        }
     }
 
     private Map<String, Object> base() {

@@ -2,6 +2,7 @@ package com.project.klare_server.payroll.web;
 
 import com.project.klare_server.auth.security.AuthenticatedUser;
 import com.project.klare_server.common.web.ApiResponse;
+import com.project.klare_server.payroll.dto.AutoRunResponse;
 import com.project.klare_server.payroll.dto.ConfirmPayrollRequest;
 import com.project.klare_server.payroll.dto.PayrollInitiationResponse;
 import com.project.klare_server.payroll.dto.PayrollOverviewResponse;
@@ -61,6 +62,19 @@ public class PayrollController {
             @Valid @RequestBody ConfirmPayrollRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
                 payrollService.confirm(principal.companyId(), runId, request.code())));
+    }
+
+    @Operation(
+            summary = "Run automatic payroll now (no SMS code)",
+            description = "Runs payroll hands-free for the company, skipping the SMS confirmation. "
+                    + "Requires automatic payroll to be enabled in Settings (the standing authorization). "
+                    + "This is also what the daily scheduler invokes on each company's pay date.")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PostMapping("/runs/auto-run")
+    public ResponseEntity<ApiResponse<AutoRunResponse>> autoRun(
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                AutoRunResponse.from(payrollService.tryAutoRun(principal.companyId(), principal.id()))));
     }
 
     @Operation(summary = "Reconcile a processing payroll run by polling pending transfers")
