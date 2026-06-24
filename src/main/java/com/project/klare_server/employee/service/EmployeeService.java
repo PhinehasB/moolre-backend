@@ -13,9 +13,11 @@ import com.project.klare_server.employee.dto.EmployeeStatsResponse;
 import com.project.klare_server.employee.dto.UpdateEmployeeRequest;
 import com.project.klare_server.employee.repository.EmployeeRepository;
 import com.project.klare_server.notification.NotificationService;
+import com.project.klare_server.personal.security.CredentialGenerator;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,14 +28,20 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final CompanyRepository companyRepository;
     private final NotificationService notificationService;
+    private final CredentialGenerator credentialGenerator;
+    private final PasswordEncoder passwordEncoder;
 
     public EmployeeService(
             EmployeeRepository employeeRepository,
             CompanyRepository companyRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            CredentialGenerator credentialGenerator,
+            PasswordEncoder passwordEncoder) {
         this.employeeRepository = employeeRepository;
         this.companyRepository = companyRepository;
         this.notificationService = notificationService;
+        this.credentialGenerator = credentialGenerator;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -46,6 +54,9 @@ public class EmployeeService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
 
+        String username = credentialGenerator.uniqueUsername(request.firstName().trim(), company.getName());
+        String temporaryPassword = credentialGenerator.temporaryPassword();
+
         Employee employee = new Employee();
         employee.setCompany(company);
         employee.setFirstName(request.firstName().trim());
@@ -55,6 +66,9 @@ public class EmployeeService {
         employee.setRole(request.role().trim());
         employee.setMonthlySalary(request.monthlySalary());
         employee.setStatus(EmployeeStatus.PENDING);
+        employee.setUsername(username);
+        employee.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        employee.setMustChangePassword(true);
 
         try {
             employeeRepository.save(employee);
@@ -64,8 +78,8 @@ public class EmployeeService {
         }
 
         if (request.sendInvitation() == null || request.sendInvitation()) {
-            notificationService.employeeInvitation(employee.getEmail(), employee.getPhone(),
-                    employee.getFirstName(), company.getName());
+            notificationService.employeeCredentials(employee.getEmail(), employee.getPhone(),
+                    employee.getFirstName(), company.getName(), username, temporaryPassword);
         }
 
         return EmployeeResponse.from(employee);

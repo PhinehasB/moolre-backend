@@ -8,6 +8,8 @@ public interface EmailService {
 
     void sendEmployeeInvitation(String toEmail, String firstName, String companyName);
 
+    void sendEmployeeCredentials(String toEmail, String firstName, String companyName, String username, String temporaryPassword);
+
     void sendPayrollEstimate(String toEmail, String firstName, String companyName, String payDate, String total, int employees);
 
     void sendAutomaticPayrollComplete(String toEmail, String firstName, String companyName, String amount, int paid, int failed);

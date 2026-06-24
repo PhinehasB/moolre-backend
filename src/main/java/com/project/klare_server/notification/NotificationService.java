@@ -59,6 +59,14 @@ public class NotificationService {
         sms(phone, "Hi " + firstName + ", " + companyName + " added you to payroll on Klare. Download the Klare app to get paid automatically.");
     }
 
+    public void employeeCredentials(String email, String phone, String firstName, String companyName, String username, String temporaryPassword) {
+        if (StringUtils.hasText(email)) {
+            emailService.sendEmployeeCredentials(email, firstName, companyName, username, temporaryPassword);
+        }
+        sms(phone, "Hi " + firstName + ", " + companyName + " added you to Klare. Username: " + username
+                + " Temp password: " + temporaryPassword + ". Open the Klare app to sign in and set your own password.");
+    }
+
     private void sms(String phone, String message) {
         if (StringUtils.hasText(phone)) {
             smsService.send(phone, message);

@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
+import java.time.Instant;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,7 +22,10 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "employees",
-        uniqueConstraints = @UniqueConstraint(name = "uq_employees_company_email", columnNames = {"company_id", "email"}),
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_employees_company_email", columnNames = {"company_id", "email"}),
+                @UniqueConstraint(name = "uq_employees_username", columnNames = {"username"})
+        },
         indexes = {
                 @Index(name = "ix_employees_company_id", columnList = "company_id"),
                 @Index(name = "ix_employees_company_status", columnList = "company_id, status")
@@ -57,4 +61,25 @@ public class Employee extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "wallet_status", nullable = false, length = 20)
     private WalletLinkStatus walletStatus = WalletLinkStatus.PROVISIONING;
+
+    @Column(name = "username", length = 60)
+    private String username;
+
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    @Column(name = "must_change_password", nullable = false, columnDefinition = "boolean default true")
+    private boolean mustChangePassword = true;
+
+    @Column(name = "activated_at")
+    private Instant activatedAt;
+
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
+
+    @Column(name = "failed_login_attempts", nullable = false, columnDefinition = "integer default 0")
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
 }

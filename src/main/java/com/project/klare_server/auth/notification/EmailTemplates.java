@@ -49,6 +49,38 @@ final class EmailTemplates {
         return layout("You've been added to payroll on Klare", "You've been added to payroll on Klare", body, null, null);
     }
 
+    static String employeeCredentials(String firstName, String companyName, String username, String temporaryPassword) {
+        String credentials = """
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="margin:8px 0 4px;border:1px solid #e3e9e5;border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 20px;border-bottom:1px solid #eef1ee;">
+                      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.4px;text-transform:uppercase;color:#8a978f;">Username</p>
+                      <p style="margin:0;font-size:18px;font-weight:700;color:#0f2a21;">%s</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:16px 20px;">
+                      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.4px;text-transform:uppercase;color:#8a978f;">Temporary password</p>
+                      <p style="margin:0;font-size:18px;font-weight:700;letter-spacing:1px;color:#0f2a21;">%s</p>
+                    </td>
+                  </tr>
+                </table>
+                """.formatted(escape(username), escape(temporaryPassword));
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Your sign-in details</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#43564f;">
+                  <strong style="color:#0f2a21;">%s</strong> added you to their team on Klare. Open the Klare app and sign in
+                  with the details below. You'll be asked to set your own password to activate your wallet.
+                </p>
+                %s
+                <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#8a978f;">
+                  For your security, change this temporary password as soon as you sign in. Never share it with anyone.
+                </p>
+                """.formatted(escape(firstName), escape(companyName), credentials);
+        return layout("Your Klare sign-in details", "Your Klare username and temporary password", body, null, null);
+    }
+
     static String payrollEstimate(String firstName, String companyName, String payDate, String total, int employees) {
         String body = """
                 <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Payroll is coming up</h1>

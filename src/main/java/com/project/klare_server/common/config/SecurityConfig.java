@@ -6,6 +6,8 @@ import com.project.klare_server.common.config.properties.RateLimitProperties;
 import com.project.klare_server.common.config.properties.SecurityProperties;
 import com.project.klare_server.auth.security.JwtAuthenticationFilter;
 import com.project.klare_server.auth.service.JwtService;
+import com.project.klare_server.personal.security.PersonalJwtService;
+import com.project.klare_server.personal.security.PersonalJwtAuthenticationFilter;
 import com.project.klare_server.common.idempotency.IdempotencyFilter;
 import com.project.klare_server.common.idempotency.IdempotencyService;
 import com.project.klare_server.common.ratelimit.RateLimitFilter;
@@ -33,6 +35,10 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
+            "/api/v1/personal/auth/signup",
+            "/api/v1/personal/auth/login",
+            "/api/v1/personal/auth/refresh",
+            "/api/v1/personal/auth/logout",
             "/api/v1/webhooks/**",
             "/actuator/health/**",
             "/actuator/info",
@@ -49,6 +55,7 @@ public class SecurityConfig {
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final IdempotencyService idempotencyService;
     private final JwtService jwtService;
+    private final PersonalJwtService personalJwtService;
     private final ObjectMapper objectMapper;
 
     public SecurityConfig(
@@ -59,6 +66,7 @@ public class SecurityConfig {
             RestAccessDeniedHandler accessDeniedHandler,
             IdempotencyService idempotencyService,
             JwtService jwtService,
+            PersonalJwtService personalJwtService,
             ObjectMapper objectMapper) {
         this.securityProperties = securityProperties;
         this.rateLimitProperties = rateLimitProperties;
@@ -67,6 +75,7 @@ public class SecurityConfig {
         this.accessDeniedHandler = accessDeniedHandler;
         this.idempotencyService = idempotencyService;
         this.jwtService = jwtService;
+        this.personalJwtService = personalJwtService;
         this.objectMapper = objectMapper;
     }
 
@@ -74,6 +83,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         RateLimitFilter rateLimitFilter = new RateLimitFilter(rateLimitProperties, objectMapper);
         JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtService);
+        PersonalJwtAuthenticationFilter personalJwtAuthenticationFilter = new PersonalJwtAuthenticationFilter(personalJwtService);
         IdempotencyFilter idempotencyFilter = new IdempotencyFilter(idempotencyService, idempotencyProperties, objectMapper);
 
         http
@@ -91,7 +101,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class)
-                .addFilterAfter(idempotencyFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(personalJwtAuthenticationFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(idempotencyFilter, PersonalJwtAuthenticationFilter.class);
 
         return http.build();
     }

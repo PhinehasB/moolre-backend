@@ -51,6 +51,13 @@ public class HtmlEmailService implements EmailService {
     }
 
     @Override
+    public void sendEmployeeCredentials(String toEmail, String firstName, String companyName, String username, String temporaryPassword) {
+        send(toEmail, "Your Klare sign-in details",
+                EmailTemplates.employeeCredentials(firstName, companyName, username, temporaryPassword),
+                "username: " + username + " temp password: " + temporaryPassword);
+    }
+
+    @Override
     public void sendPayrollEstimate(String toEmail, String firstName, String companyName, String payDate, String total, int employees) {
         send(toEmail, "Your upcoming Klare payroll",
                 EmailTemplates.payrollEstimate(firstName, companyName, payDate, total, employees),

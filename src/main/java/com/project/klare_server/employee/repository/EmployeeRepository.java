@@ -5,6 +5,7 @@ import com.project.klare_server.employee.domain.EmployeeStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,10 @@ import org.springframework.data.repository.query.Param;
 public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     boolean existsByCompanyIdAndEmailIgnoreCase(UUID companyId, String email);
+
+    boolean existsByUsername(String username);
+
+    Optional<Employee> findByUsername(String username);
 
     long countByCompanyId(UUID companyId);
 
