@@ -52,4 +52,10 @@ public class PersonalObligation extends BaseEntity {
 
     @Column(name = "destination", length = 120)
     private String destination;
+
+    @Column(name = "network", length = 40)
+    private String network;
+
+    @Column(name = "recipient_number", length = 60)
+    private String recipientNumber;
 }

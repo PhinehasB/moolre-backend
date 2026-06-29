@@ -86,6 +86,13 @@ public class HtmlEmailService implements EmailService {
     }
 
     @Override
+    public void sendSalaryReceived(String toEmail, String firstName, String companyName, String amount, String spendable, String safe) {
+        send(toEmail, "Your salary just landed on Klare",
+                EmailTemplates.salaryReceived(firstName, companyName, amount, spendable, safe),
+                "salary GHS " + amount + " | spendable GHS " + spendable + " | safe GHS " + safe);
+    }
+
+    @Override
     public void sendPayrollCode(String toEmail, String firstName, String code) {
         send(toEmail, "Your Klare payroll code",
                 EmailTemplates.payrollCode(firstName, code),

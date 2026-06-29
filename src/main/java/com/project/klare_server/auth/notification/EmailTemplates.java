@@ -143,6 +143,38 @@ final class EmailTemplates {
         return layout("Your Klare payroll code", "Your Klare payroll confirmation code", body, null, null);
     }
 
+    static String salaryReceived(String firstName, String companyName, String amount, String spendable, String safe) {
+        String split = """
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="margin:8px 0 4px;border:1px solid #e3e9e5;border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 20px;border-bottom:1px solid #eef1ee;">
+                      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.4px;text-transform:uppercase;color:#8a978f;">Yours to spend</p>
+                      <p style="margin:0;font-size:20px;font-weight:700;color:#15604a;">GHS %s</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:16px 20px;">
+                      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.4px;text-transform:uppercase;color:#8a978f;">Locked for bills</p>
+                      <p style="margin:0;font-size:20px;font-weight:700;color:#0f2a21;">GHS %s</p>
+                    </td>
+                  </tr>
+                </table>
+                """.formatted(escape(spendable), escape(safe));
+        String body = """
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Salary received 🎉</h1>
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#43564f;">Hi %s,</p>
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#43564f;">
+                  <strong style="color:#0f2a21;">GHS %s</strong> from <strong style="color:#0f2a21;">%s</strong> just landed in your
+                  Klare wallet. We've already set aside your bills into your safe wallet — here's what's yours.
+                </p>
+                %s
+                <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#8a978f;">
+                  Open the Klare app to review your bills or send money. Your money, already sorted.
+                </p>
+                """.formatted(escape(firstName), escape(amount), escape(companyName), split);
+        return layout("Your salary just landed on Klare", "Your salary just landed on Klare", body, null, null);
+    }
+
     static String paydayReminder(String firstName, String companyName, String payDate) {
         String body = """
                 <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#0f2a21;font-weight:700;">Payday is almost here</h1>

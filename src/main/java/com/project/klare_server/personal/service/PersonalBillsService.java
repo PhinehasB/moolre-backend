@@ -1,5 +1,6 @@
 package com.project.klare_server.personal.service;
 
+import com.project.klare_server.common.error.ResourceNotFoundException;
 import com.project.klare_server.common.error.UnauthorizedException;
 import com.project.klare_server.employee.domain.Employee;
 import com.project.klare_server.employee.repository.EmployeeRepository;
@@ -7,6 +8,7 @@ import com.project.klare_server.personal.domain.PersonalAccountType;
 import com.project.klare_server.personal.domain.PersonalObligation;
 import com.project.klare_server.personal.dto.CreateObligationRequest;
 import com.project.klare_server.personal.dto.PersonalBillsResponse;
+import com.project.klare_server.personal.dto.UpdateObligationRequest;
 import com.project.klare_server.personal.repository.PersonalObligationRepository;
 import com.project.klare_server.personal.repository.PersonalWalletRepository;
 import com.project.klare_server.personal.security.AuthenticatedPersonalUser;
@@ -44,8 +46,48 @@ public class PersonalBillsService {
         obligation.setActive(true);
         obligation.setLocked(true);
         obligation.setAutoSwept(true);
+        obligation.setNetwork(request.network().trim());
+        obligation.setRecipientNumber(request.recipientNumber() != null ? request.recipientNumber().trim() : null);
         obligation.setDestination(buildDestination(request.network(), request.recipientNumber()));
         return toBill(obligationRepository.save(obligation));
+    }
+
+    @Transactional
+    public PersonalBillsResponse.Bill update(AuthenticatedPersonalUser principal, java.util.UUID id, UpdateObligationRequest request) {
+        PersonalObligation obligation = obligationRepository
+                .findByIdAndAccountIdAndAccountType(id, principal.id(), principal.accountType())
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        if (StringUtils.hasText(request.name())) {
+            obligation.setName(request.name().trim());
+        }
+        if (request.amount() != null) {
+            obligation.setAmount(request.amount());
+        }
+        if (request.active() != null) {
+            obligation.setActive(request.active());
+        }
+        if (request.category() != null) {
+            obligation.setCategory(request.category());
+        }
+        if (StringUtils.hasText(request.network())) {
+            obligation.setNetwork(request.network().trim());
+        }
+        if (request.recipientNumber() != null) {
+            obligation.setRecipientNumber(
+                    StringUtils.hasText(request.recipientNumber()) ? request.recipientNumber().trim() : null);
+        }
+        if (StringUtils.hasText(request.network()) || request.recipientNumber() != null) {
+            obligation.setDestination(buildDestination(obligation.getNetwork(), obligation.getRecipientNumber()));
+        }
+        return toBill(obligation);
+    }
+
+    @Transactional
+    public void delete(AuthenticatedPersonalUser principal, java.util.UUID id) {
+        PersonalObligation obligation = obligationRepository
+                .findByIdAndAccountIdAndAccountType(id, principal.id(), principal.accountType())
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        obligationRepository.delete(obligation);
     }
 
     private String buildDestination(String network, String recipientNumber) {
@@ -99,6 +141,8 @@ public class PersonalBillsService {
                 obligation.getCategory().name(),
                 obligation.getAmount(),
                 obligation.getDestination(),
+                obligation.getNetwork(),
+                obligation.getRecipientNumber(),
                 obligation.isActive(),
                 obligation.isLocked());
     }

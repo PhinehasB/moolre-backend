@@ -15,7 +15,6 @@ import com.project.klare_server.company.repository.CompanyWalletRepository;
 import com.project.klare_server.employee.domain.Employee;
 import com.project.klare_server.employee.domain.EmployeeStatus;
 import com.project.klare_server.employee.repository.EmployeeRepository;
-import com.project.klare_server.moolre.GhanaMobileMoney;
 import com.project.klare_server.moolre.MoolreClient;
 import com.project.klare_server.moolre.MoolreException;
 import com.project.klare_server.payroll.domain.PayrollItem;
@@ -57,6 +56,7 @@ public class PayrollService {
     private final PayrollConfirmationAttemptService attemptService;
     private final NotificationService notificationService;
     private final MoolreClient moolreClient;
+    private final com.project.klare_server.personal.service.PersonalPaymentService personalPaymentService;
     private final String pepper;
     private final BigDecimal serviceFeePercent;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -71,6 +71,7 @@ public class PayrollService {
             PayrollConfirmationAttemptService attemptService,
             NotificationService notificationService,
             MoolreClient moolreClient,
+            com.project.klare_server.personal.service.PersonalPaymentService personalPaymentService,
             @org.springframework.beans.factory.annotation.Value("${klare.payroll.service-fee-percent:0.5}") BigDecimal serviceFeePercent,
             SecurityProperties securityProperties) {
         this.companyRepository = companyRepository;
@@ -82,6 +83,7 @@ public class PayrollService {
         this.attemptService = attemptService;
         this.notificationService = notificationService;
         this.moolreClient = moolreClient;
+        this.personalPaymentService = personalPaymentService;
         this.serviceFeePercent = serviceFeePercent;
         this.pepper = securityProperties.refreshToken().pepper();
     }
@@ -248,36 +250,13 @@ public class PayrollService {
             item.setTransactionId("SBX-" + item.getExternalRef());
             return PayrollItemStatus.PAID;
         }
-        String channel;
-        String receiver;
         try {
-            channel = GhanaMobileMoney.resolveChannel(item.getEmployee().getPhone());
-            receiver = GhanaMobileMoney.normalize(item.getEmployee().getPhone());
-        } catch (MoolreException ex) {
+            personalPaymentService.recordSalaryPayment(item.getEmployee().getId(), item.getAmount());
+            item.setTransactionId("KLARE-" + item.getExternalRef());
+            return PayrollItemStatus.PAID;
+        } catch (Exception ex) {
             item.setFailureReason(ex.getMessage());
             return PayrollItemStatus.FAILED;
-        }
-
-        try {
-            MoolreClient.TransferResult result = moolreClient.transfer(
-                    channel, item.getAmount(), receiver, item.getExternalRef(), "Salary payment");
-            item.setTransactionId(result.transactionId());
-            Integer tx = result.txstatus();
-            if (tx != null && tx == 1) {
-                return PayrollItemStatus.PAID;
-            }
-            if (tx != null && (tx == 0 || tx == 3)) {
-                return PayrollItemStatus.PENDING;
-            }
-            if (tx != null && tx == 2) {
-                item.setFailureReason(result.message() != null ? result.message() : result.code());
-                return PayrollItemStatus.FAILED;
-            }
-            item.setFailureReason(result.message() != null ? result.message() : result.code());
-            return PayrollItemStatus.FAILED;
-        } catch (MoolreException ex) {
-            item.setFailureReason(ex.getMessage());
-            return PayrollItemStatus.PENDING;
         }
     }
 

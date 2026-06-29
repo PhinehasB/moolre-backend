@@ -18,5 +18,7 @@ public interface EmailService {
 
     void sendPaydayReminder(String toEmail, String firstName, String companyName, String payDate);
 
+    void sendSalaryReceived(String toEmail, String firstName, String companyName, String amount, String spendable, String safe);
+
     void sendPayrollCode(String toEmail, String firstName, String code);
 }

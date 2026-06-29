@@ -18,6 +18,8 @@ public record PersonalBillsResponse(
             String category,
             BigDecimal amount,
             String destination,
+            String network,
+            String recipientNumber,
             boolean active,
             boolean locked) {
     }
